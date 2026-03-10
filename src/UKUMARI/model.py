@@ -5,7 +5,7 @@ from typing import Any
 from .agent_space import AgentSpace
 from .agents import Agent, AgentSet
 from .graphs import Graph, GraphSet
-from .logging import ABMOSLogger
+from .logging import UKUMARILogger
 from .visualisation import ABVisualiser
 
 
@@ -34,7 +34,7 @@ class ABModel:
         else:
             self.agent_space = AgentSpace(self)
 
-        self.logger: ABMOSLogger = ABMOSLogger(self)
+        self.logger: UKUMARILogger = UKUMARILogger(self)
         self.visualiser: ABVisualiser = ABVisualiser(self)
         self.current_iteration: int = 0
         self.max_iterations: int = iterations
