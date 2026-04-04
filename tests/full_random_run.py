@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     layers: dict = {}
 
-    base_graph: gr.Graph = gr.Graph("base_graph")
+    base_graph: gr.Graph = gr.Graph("base_graph", (0, 0.1))
     base_graph.add_nodes(individuals)
     layers["base_graph"] = base_graph
 
@@ -52,8 +52,16 @@ if __name__ == "__main__":
 
         layers[f"hierarchy_{j}"] = tmp_graph
 
+    graph_distribution: list[tuple[float, float]] = [
+        (0, 0.1),
+        (0, 0.3),
+        (0, 0.1),
+        (0, 0.05),
+        (0, 0.6)
+    ]
+
     model = md.ABModel(100)
-    model.add_graphs(list(layers.values()), list(layers.keys()))
+    model.add_graphs(list(layers.values()), list(layers.keys()), graph_distribution)
     model.add_agents(individuals)
 
     for agent in model.agents.agents:

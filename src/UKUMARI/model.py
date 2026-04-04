@@ -122,10 +122,12 @@ class ABModel:
         Steps the model forward one iteration. This does not handle agent opinion changes,
         but rather dynamic agent movement and relationship changes.
         """
+        # TODO: Implement this function
         pass
 
     def update(self) -> None:
         """
         Updates the agents' internal states to match the model step.
         """
+        # TODO: Implement this function
         pass
