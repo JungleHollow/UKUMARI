@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, Generator, Iterable
+from copy import deepcopy
 from random import Random
 from typing import Any, override
 
 import numpy as np
 import polars as pl
-
-# from .model import ABModel
 
 
 class Agent:
@@ -22,13 +21,18 @@ class Agent:
             - <string> to set the Agent's id
             - <dict> of {hierarchy_name : weight} for the personal value that this Agent assigns to each social hierarchy
             - <float> in the range [-1, 1] to set the Agent's initial opinion on the topic of interest
-            - (x, y) for the initial position of the Agent
+            - (string, float) for the agent's defined personality and their social susceptibility
 
         :param args: positional arguments that can be passed to each Agent
         :param kwargs: keyword arguments that can be passed to each Agent
         """
 
         self.id: str  # Can be any arbitrary string, but likely will follow the form XXXX0000 allowing for up to 9999 agents per community
+        self.index: int  # The Agent's index within the AgentSet it belongs in
+
+        self.social_weightings: dict[str, float] = {}
+        self.opinion: float = 0.0  # Range always [-1, 1]
+
         self.previous_opinion: float = (
             0.0  # Used to handle updating during model iterations
         )
@@ -40,22 +44,19 @@ class Agent:
             for arg in args:
                 match arg:
                     case dict():
-                        self.add_attribute("social_weightings", arg)
+                        self.add_attribute("social_weightings", value=arg)
                     case float():
-                        self.add_attribute("opinion", arg)
+                        self.add_attribute("opinion", value=arg)
                     case tuple():
-                        self.add_attribute("position", arg)
+                        self.add_attribute("personality", value=arg[0])
+                        self.add_attribute("social_susceptibility", value=arg[1])
                     case str():
                         self.id = arg
-
-        self.social_weightings: dict[str, float]
-        self.opinion: float  # Range always [-1, 1]
-        self.position: tuple[int, int]
 
         if kwargs:
             for key, value in kwargs.items():
                 # No checking for duplicate keys; assume that explicitly added kwargs should override any args.
-                self.add_attribute(key, value)
+                self.add_attribute(key, value=value)
 
     def add_attribute(
         self,
@@ -64,7 +65,7 @@ class Agent:
         mean: float | None = None,
         sdev: float | None = None,
         distribution: str | None = None,
-        overwrite: bool = False,
+        overwrite: bool = True,
     ) -> None:
         # TODO: Add support for additional random distributions
         """
@@ -86,7 +87,7 @@ class Agent:
             )
 
         if not overwrite and name in self.__dict__.keys():
-            # Raise a warning but do not change any attributes or crash the model if overwriting an existing attribute without meaning to.
+            # Raise a warning but do not change any attributes or crash the model if overwriting an existing attribute whilst explicitly passing overwrite = False
             warnings.warn(
                 f"WARNING: Attempting to overwrite an existing Agent attribute ({name}) without meaning to.",
                 category=UserWarning,
@@ -113,7 +114,7 @@ class Agent:
             return self.__dict__[name]
         except KeyError:
             warnings.warn(
-                "WARNING: Attempting to get an Agent attribute which doesn't exist.",
+                f"WARNING: Attempting to get an Agent attribute ({name}) which doesn't exist.",
                 category=UserWarning,
             )
             return None
@@ -196,15 +197,8 @@ class AgentSet:
         :param model: The parent ABModel object that this AgentSet is being attached to
         """
         self.parent_model = model
-        # self.agents: pl.Series = pl.Series()
         self.agents: list = []
         self.random: Random = Random()
-
-    # def __iter__(self) -> Generator[Any]:
-    #     """
-    #     Override of what calling __iter__ on this object will return
-    #     """
-    #     return self.agents.__iter__()
 
     def __len__(self) -> int:
         """
@@ -219,39 +213,7 @@ class AgentSet:
         """
         return self.agents.__contains__(agent)
 
-    # def select(
-    #     self,
-    #     filter_func: Callable[[Agent], bool],
-    #     inplace: bool = False,
-    #     k: int | None = None,
-    # ) -> AgentSet:
-    #     """
-    #     Select a subset of Agent objects from the AgentSet.
-
-    #     :param filter_func: a function used to filter the Agent objects
-    #     :param inplace: if True, modify the existing AgentSet, otherwise return a new AgentSet
-    #     :param k: the maximum number of Agent objects to include in the subset
-    #     :return: an AgentSet containing a filtered subset of Agents
-    #     """
-    #     if not k:
-    #         k = len(self.agents)
-
-    #     agents_df: pl.DataFrame = pl.DataFrame(self.agents, schema=["Agents"], orient="row")
-
-    #     set_mask = []
-    #     for agent in agents_df:
-    #         set_mask.append(filter_func(agent))
-
-    #     reduced_set: pl.DataFrame = agents_df.filter(set_mask)
-    #     if k < len(reduced_set):
-    #         reduced_set = reduced_set.sample(n=k)
-
-    #     if inplace:
-    #         self.agents = reduced_set.to
-
-    #     return self
-
-    def __getitem__(self, item: int | slice) -> pl.Series | Any:
+    def __getitem__(self, item: int | slice) -> Any:
         """
         Retrieve an Agent or slice of Agents from the AgentSet.
         :param item: the index or slice for selecting the agents
@@ -264,28 +226,95 @@ class AgentSet:
         Add an Agent to the AgentSet.
         :param agent: the Agent object to be added
         """
-        for idx, agnt in enumerate(self.agents):
-            if agnt is None:
-                self.agents[idx] = agent
-                self.agents[idx].id = idx
-                return 1
         self.agents.append(agent)
-        self.agents[-1].id = len(self.agents) - 1
+        self.agents[-1].index = len(self.agents)
         return 1
 
-    def discard(self, agent: Agent) -> int:
-        for idx, agnt in enumerate(self.agents):
-            if agent == agnt:
-                self.agents[idx] = None
-                return 1
-        return 0
+    def update_indices(self) -> None:
+        """
+        Iterate over the AgentSet and update the current Agent object index values
+        """
+        for idx, agent in enumerate(self.agents):
+            agent.index = idx
 
-    def remove(self, agent: Agent) -> int:
+    def discard(self, agent: Agent) -> bool:
+        """
+        Removes an Agent from the AgentSet which matches the input Agent; does not return an error if the Agent does not exist.
+        :param agent: The Agent object that should be removed from the set
+        :return: A boolean to flag if the Agent was removed successfully or not
+        """
         for idx, agnt in enumerate(self.agents):
             if agent == agnt:
-                self.agents[idx] = None
-                return 1
-        raise KeyError("Tried to remove an Agent that doesn't exist in the AgentSet")
+                left_half: list[Agent] = deepcopy(self.agents[:idx])
+                right_half: list[Agent] = deepcopy(self.agents[idx + 1 :])
+
+                self.agents = deepcopy(left_half) + deepcopy(right_half)
+                del left_half, right_half
+
+                self.update_indices()
+                return True
+        return False
+
+    def discard_index(self, index: int) -> bool:
+        """
+        Removes the Agent at the specified index in the AgentSet; does not return an error if the index is out of bounds.
+        :param index: The index in the AgentSet which is to be removed
+        :return: A boolean to flag if the Agent was removed successfully or not
+        """
+        if 0 < index < len(self.agents):
+            left_half: list[Agent] = deepcopy(self.agents[:index])
+            right_half: list[Agent] = deepcopy(self.agents[index + 1:])
+            
+            self.agents = deepcopy(left_half) + deepcopy(right_half)
+            del left_half, right_half
+            
+            self.update_indices()
+            return True
+        return False
+
+    def remove(self, agent: Agent) -> bool:
+        """
+        Removes an Agent from the AgentSet which matches the input Agent; returning an error if such an Agent does not exist.
+        :param agent: The Agent object that should be removed from the set
+        :return: A boolean to flag that the Agent was removed successfully
+        """
+        for idx, agnt in enumerate(self.agents):
+            if agent == agnt:
+                left_half: list[Agent] = deepcopy(self.agents[:idx])
+                right_half: list[Agent] = deepcopy(self.agents[idx + 1 :])
+
+                self.agents = deepcopy(left_half) + deepcopy(right_half)
+                del left_half, right_half
+
+                self.update_indices()
+                return True
+        raise KeyError(f"Tried to remove an Agent with id {agent.id} that doesn't exist in the AgentSet")
+
+    def remove_index(self, index: int) -> bool:
+        """
+        Removes the Agent at the specified index in the AgentSet; returning an error if the index is out of bounds.
+        :param index: The index in the AgentSet which is to be removed
+        :return: A boolean to flag that the Agent was removed successfully
+        """
+        if 0 < index < len(self.agents):
+            left_half: list[Agent] = deepcopy(self.agents[:index])
+            right_half: list[Agent] = deepcopy(self.agents[index + 1:])
+            
+            self.agents = deepcopy(left_half) + deepcopy(right_half)
+            del left_half, right_half
+
+            self.update_indices()
+            return True
+        raise IndexError(f"Tried to remove an Agent at out of bounds index {index} from the AgentSet")
+
+    def sample(self, n: int) -> list[Agent]:
+        """
+        Randomly draw n Agents from the AgentSet without replacement
+        :param n: The number of agents to sample
+        :return: A list of the agents sampled from the AgentSet
+        """
+        sampled_agents: list[Agent] = self.random.sample(self.agents, n)
+        return deepcopy(sampled_agents)
 
     @override
     def __getstate__(self) -> dict:
@@ -293,4 +322,4 @@ class AgentSet:
         Retrive the current state of the AgentSet for serialization.
         :return: a dictionary representing the current state of the AgentSet
         """
-        return {"agents": list(self.agents), "random": self.random}
+        return {"agents": self.agents, "random": self.random}

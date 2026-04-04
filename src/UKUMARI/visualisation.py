@@ -7,8 +7,6 @@ import rustworkx as rx
 from matplotlib import pyplot as plt
 from rustworkx.visualization import mpl_draw
 
-# from .model import ABModel
-
 
 class ABVisualiser:
     """

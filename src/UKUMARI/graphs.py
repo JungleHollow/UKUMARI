@@ -11,8 +11,6 @@ import rustworkx as rx
 
 from .agents import Agent
 
-# from .model import ABModel
-
 
 class GraphNode:
     """
@@ -308,8 +306,6 @@ class Graph:
                 (neighbour_node.agent.opinion / (1 - agent_hierarchy_weighting))*relationship_strength
             )
 
-            # print(opinion_change)
-
             final_change += opinion_change
         return final_change
 
@@ -332,7 +328,6 @@ class GraphSet:
         :param graphs: An optional iterable containing already created Graph objects
         """
         self.parent_model: Any = model
-        # self.graphs: pl.Series = pl.Series(values=graphs)
         self.graphs: list[Graph] = graphs
 
     def add_graph(self, graph: Graph) -> None:
@@ -395,12 +390,6 @@ class GraphSet:
                 if abs(social_weighting) > threshold:
                     significant_hierarchies.append(hierarchy.name)
         return significant_hierarchies
-
-    # def __iter__(self) -> Generator[Any]:
-    #     """
-    #     An override of what looping over this object will output
-    #     """
-    #     return self.graphs.__iter__()
 
     def __str__(self) -> str:
         """

@@ -9,7 +9,7 @@ import src.UKUMARI.agents as agt
 import src.UKUMARI.graphs as gr
 import src.UKUMARI.model as md
 
-# rd.seed(1234)
+rd.seed(1234)
 N_INDIVIDUALS: int = 10
 
 if __name__ == "__main__":
@@ -28,10 +28,6 @@ if __name__ == "__main__":
         individuals.append(tmp_agent)
 
     layers: dict = {}
-
-    # base_graph: rx.PyDiGraph = rx.PyDiGraph()
-    # base_graph.add_nodes_from(individuals)
-    # layers["base"] = base_graph
 
     base_graph: gr.Graph = gr.Graph("base_graph")
     base_graph.add_nodes(individuals)

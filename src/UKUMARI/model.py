@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-# from .agent_space import AgentSpace
 from .agents import Agent, AgentSet
 from .graphs import Graph, GraphSet
 from .logging import UKUMARILogger
@@ -16,9 +15,7 @@ class ABModel:
 
     def __init__(
         self,
-        iterations: int = 100,
-        xlims: tuple[int, int] | None = None,
-        ylims: tuple[int, int] | None = None,
+        iterations: int = 100
     ) -> None:
         """
         :param iterations: The number of iterations that the model will run for
@@ -27,12 +24,6 @@ class ABModel:
         """
         self.graphs: GraphSet = GraphSet(self)
         self.agents: AgentSet = AgentSet(self)
-
-        # self.agent_space: AgentSpace
-        # if xlims is not None and ylims is not None:
-        #     self.agent_space = AgentSpace(self, xlims=xlims, ylims=ylims)
-        # else:
-        #     self.agent_space = AgentSpace(self)
 
         self.logger: UKUMARILogger = UKUMARILogger(self)
         self.visualiser: ABVisualiser = ABVisualiser(self)
