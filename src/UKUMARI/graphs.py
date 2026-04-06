@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 from collections.abc import Generator, Iterable
 from math import fabs
+from random import Random
 from typing import Any
 
 import numpy as np
@@ -10,6 +11,7 @@ import polars as pl
 import rustworkx as rx
 
 from .agents import Agent
+from .utils import connected_watts_strogatz_graph
 
 
 class GraphNode:
@@ -65,8 +67,6 @@ class Graph:
     with respect to different social hierarchies.
     """
 
-    # TODO: Add functionality for random graph generation
-
     def __init__(self, name: str, rw_params: tuple[float, float]) -> None:
         """
         :param name: The name of the social hierarchy that this Graph object will be representing
@@ -78,6 +78,13 @@ class Graph:
         self.edge_count: int = 0
         self.name: str = name
         self.rw_params: tuple[float, float] = rw_params
+        self.generation_params: dict[
+            str, Any
+        ] = {  # Used for random graph generation, can be manually set by the user if desired
+            "p": 0.4,
+            "m": 3,
+            "sbm_sizes": 10,
+        }
 
     def load_graph(self, path: str, name: str) -> None:
         """
@@ -173,6 +180,96 @@ class Graph:
 
         self.graph.add_edges_from(graph_edges)
         self.update_edge_indices()
+
+    def generate_graph(self, agents: list[Agent], method: str = "small-world") -> None:
+        """
+        Randomly generate edges between existing Graph nodes and add them to the graph.
+
+        :param agents: The subset of Agents in the base model that are being used as the nodes for this graph.
+        :param method: The random generation method to use. Possible choices include: 'small-world', 'scale-free', 'random', 'blockmodel'; Defaults to 'small-world'.
+        :return: The number of nodes present in the generated graph.
+        """
+        if len(agents) <= 0:
+            raise ValueError(
+                f"Attempting to generate random graph for hierarchy '{self.name}' without passing any valid Agents."
+            )
+
+        n: int = len(agents)
+        generated_graph: rx.PyDiGraph = rx.PyDiGraph()  # Initialise an empty graph for predictable behaviour in case of assignation errors
+        random_gen: Random = (
+            Random()
+        )  # Initialise a random generator instance for this function
+
+        match method:
+            case "small-world":
+                # Watts-Strogatz
+                k: int = np.ceil(
+                    np.log(n)
+                )  # The smallest integer which is larger than log(n) to guarantee graph connectivity
+                generated_graph = connected_watts_strogatz_graph(
+                    n, k, self.generation_params["p"]
+                )
+            case "scale-free":
+                # Barbasi-Albert
+                generated_graph = rx.directed_barabasi_albert_graph(
+                    n, self.generation_params["m"]
+                )
+            case "random":
+                # Erdos-Renyi
+                generated_graph = rx.directed_gnp_random_graph(
+                    n, self.generation_params["p"]
+                )
+            case "blockmodel":
+                # Holland et al.
+                sbm_remainder: int = (
+                    n % self.generation_params["sbm_sizes"]
+                )  # Determine if there will be any remainder with the specified block size
+                sbm_n_blocks: int = (
+                    len(agents) // self.generation_params["sbm_sizes"]
+                )  # Determine how many blocks will be created
+                sbm_sizes: list[int] = [
+                    self.generation_params["sbm_sizes"] for _ in range(sbm_n_blocks)
+                ]
+                sbm_sizes[-1] += (
+                    sbm_remainder  # If any agents are left over, add them all to the last block
+                )
+
+                sbm_probabilities: np.ndarray = np.zeros(
+                    (sbm_n_blocks, sbm_n_blocks), dtype=np.float16
+                )  # Initialise a BxB array to hold the probabilities for inter-block connections
+                for i in range(sbm_probabilities.shape[0]):
+                    for j in range(sbm_probabilities.shape[1]):
+                        sbm_probabilities[i, j] = (
+                            random_gen.random()
+                        )  # Set a random probability for edge connectivity from block i to block j (directed, asymmetrical)
+
+                generated_graph = rx.directed_sbm_random_graph(
+                    sbm_sizes, sbm_probabilities, False
+                )  # "False" to disallow existence of self loops in the graph
+            case _:
+                raise ValueError(
+                    f"Attempting to generate random graph with a non-supported method ({method}).\n\nUse one of the supported methods: 'small-world', 'scale-free', 'random', or 'blockmodel'..."
+                )
+
+        graph_nodes: list[GraphNode] = []
+        for node in generated_graph.nodes():
+            graph_node: GraphNode = GraphNode(agents[node])
+            graph_node.index = node
+            graph_nodes.append(graph_node)
+        for idx, graph_node in enumerate(graph_nodes):
+            generated_graph[idx] = (
+                graph_node  # Update all the graph nodes with the new GraphNode data objects
+            )
+
+        self.graph = generated_graph  # Store the generated graph as the object's "graph" attribute (with 0.0 weights currently)
+
+        for edge in generated_graph.weighted_edge_list():
+            generated_value = random_gen.uniform(
+                -1, 1
+            )  # Generate a random value in the range [-1, 1]
+            self.change_weights(
+                edge[0], edge[1], generated_value
+            )  # Update the edge weighting in the graph
 
     def relationship_exists(self, node_1: int, node_2: int) -> int | None:
         """
