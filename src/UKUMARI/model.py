@@ -12,6 +12,7 @@ class ABModel:
     """
     An agent-based model class that is capable of handling multiple layers that affect agent behaviour.
     """
+    # TODO: Add functions to calculate network-level informational statistics (i.e. layer interdependence, radicalisation log odds, etc...)
 
     def __init__(
         self,

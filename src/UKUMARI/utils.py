@@ -138,6 +138,7 @@ def beta_value_attenuation(input_value: float, a: float = 0.5, b: float = 0.5) -
     :param b: The beta parameter for the beta distribution.
     :return: The attenuated input value.
     """
+    # TODO: Change the from an "attenuation" to a simple value drawn from a beta distribution; possibly change the alpha and beta parameters for a less extreme curve
     original_opinion: float = input_value
 
     # Shift the range of input_value from [-1, 1] to [0, 1]
