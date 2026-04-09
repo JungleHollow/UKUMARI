@@ -116,6 +116,7 @@ class ABModel:
                     agent.opinion += total_change
             self.step()
             self.update()
+            self.logger.iteration()  # Store all relevant model variables and states for future analysis
             self.logger.iteration_print(
                 self.current_iteration
             )  # Does nothing if not at the print interval
@@ -124,17 +125,21 @@ class ABModel:
     def step(self) -> None:
         """
         Steps the model forward one iteration. This does not handle agent opinion changes,
-        but rather dynamic agent movement and relationship changes.
+        but rather dynamic agent relationships and hierarchy weightings.
         """
-        # TODO: Implement this function
-        pass
+        for graph in self.graphs:
+            graph.step()
+        for agent in self.agents:
+            agent.step()
 
     def update(self) -> None:
         """
-        Updates the agents' internal states to match the model step.
+        Updates the agents' internal states to match the model step. This mainly handles the construction of agents'
+        perceived opinion climates within their hierarchies, and the simulation of opinion silencing behaviours depending
+        on these climates.
         """
-        # TODO: Implement this function
-        pass
+        for agent in self.agents:
+            agent.update()
 
     def calculate_navigability(
         self, from_node: tuple[int, int], to_node: tuple[int, int]

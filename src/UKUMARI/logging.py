@@ -8,6 +8,7 @@ class UKUMARILogger:
     The logging module will contain all functions related to logging and/or printing model progress and information
     both during and after simulation
     """
+
     # TODO: Expand on logging capabilities
 
     def __init__(
@@ -27,6 +28,13 @@ class UKUMARILogger:
         self.verbose: bool = verbose
         self.print_interval: int = print_interval
         self.write_file: bool = write_file
+
+    def iteration(self) -> None:
+        """
+        Inspect and store all relevant model variables and states based on the level of logging that has been specified.
+        """
+        # TODO: Implement this function
+        pass
 
     def iteration_print(self, current_iteration: int) -> None:
         """

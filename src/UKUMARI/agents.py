@@ -4,7 +4,7 @@ import warnings
 from collections.abc import Callable, Generator, Iterable
 from copy import deepcopy
 from random import Random
-from typing import Any, override
+from typing import Any, Iterator, override
 
 import numpy as np
 import polars as pl
@@ -127,7 +127,7 @@ class Agent:
         # TODO: Implement this function
         pass
 
-    def update_state(self):
+    def update(self):
         """
         Updates the internal state of the agent after the model has stepped.
         """
@@ -195,13 +195,15 @@ class Agent:
         """
         Determine if the Agent is contained within an iterable of Agents
 
-        :param iterable: The iterable of Agent objects in which membership is being determined
+        :param iterable: The iterable of Agent objects in which membership is being determined.
+        :return: A boolean indicating if this Agent is contained within the iterable.
         """
         for agent in iterable:
             if self == agent:
                 return True
         return False
 
+    @override
     def __str__(self) -> str:
         """
         An override to what calling `print()` on this object will output
@@ -224,29 +226,50 @@ class AgentSet:
 
     def __len__(self) -> int:
         """
+        A method that defines how an AgentSet object checks its length.
+
         :return: the number of agents present in the AgentSet
         """
         return len(self.agents)
 
+    def __iter__(self) -> Iterator[Agent]:
+        """
+        A method that defines how the AgentSet iterates over its Agents.
+
+        :return: An Iterator object that iterates over all the Agents within the AgentSet.
+        """
+        return self.agents.__iter__()
+
+    def __in__(self, agent: Agent) -> bool:
+        """
+        A method defining how an AgentSet checks for an Agent's membership.
+
+        :param agent: The specific Agent object to check for.
+        :return: A boolean indicating if the Agent object is in the AgentSet.
+        """
+        return agent in self.agents
+
     def __contains__(self, agent: Agent) -> bool:
         """
-        :param agent: the specific Agent object to check for
-        :return: a boolean indicating if the specified Agent object is in the AgentSet
+        A secondary method defining how an AgentSet checks for an Agent's membership.
+
+        :param agent: The specific Agent object to check for.
+        :return: A boolean indicating if the specified Agent object is in the AgentSet.
         """
         return self.agents.__contains__(agent)
 
     def __getitem__(self, item: int | slice) -> Any:
         """
         Retrieve an Agent or slice of Agents from the AgentSet.
-        :param item: the index or slice for selecting the agents
-        :return: the selected agent or slice of agents based on the specified item
+        :param item: The index or slice for selecting the agents.
+        :return: The selected agent or slice of agents based on the specified item.
         """
         return self.agents.__getitem__(item)
 
     def add(self, agent: Agent) -> int:
         """
         Add an Agent to the AgentSet.
-        :param agent: the Agent object to be added
+        :param agent: The Agent object to be added.
         """
         self.agents.append(agent)
         self.agents[-1].index = len(self.agents)

@@ -4,7 +4,7 @@ import contextlib
 import warnings
 from collections.abc import Iterable
 from random import Random
-from typing import Any
+from typing import Any, Iterator, override
 
 import numpy as np
 import polars as pl
@@ -26,7 +26,11 @@ class GraphNode:
         self.index: int
         self.agent: Agent = agent
 
+    @override
     def __str__(self) -> str:
+        """
+        An override of what calling 'print()' on a GraphNode object will output.
+        """
         return f"Agent ({self.agent.id}) at graph node ({self.index})"
 
 
@@ -56,7 +60,11 @@ class GraphEdge:
         self.to_node: int = to_node
         self.hierarchy: str = hierarchy
 
+    @override
     def __str__(self) -> str:
+        """
+        An override of what calling 'print()' on a GraphEdge object will output.
+        """
         return f"GraphEdge of weight ({self.weighting}) from node ({self.from_node}) to node ({self.to_node}) in the {self.hierarchy} social layer"
 
 
@@ -458,6 +466,13 @@ class Graph:
             neighbour_nodes.append(neighbour_node)
         return neighbour_nodes
 
+    def step(self) -> None:
+        """
+        Step the individual Graph object.
+        """
+        # TODO: Implement this function
+        pass
+
     def neighbour_influences(self, agent: Agent) -> float:
         """
         Looks at all the neighbours for an Agent and uses the neighbours' own opinions plus the
@@ -544,6 +559,53 @@ class Graph:
 
         return opinion_climate
 
+    def calculate_polarisation(self) -> float:
+        r"""
+        Calculates the level of opinion polarisation in this Graph based on the equation:
+
+        ..math::
+
+            \pi(k) = \frac{1}{|K|(|K| - 1)}\sum_{i \neq j}^{i \in K, j \in K}(d_{ij} - y)^{2}
+
+        where :math:`K` is the set of agents within this Graph, :math:`d_{ij}` is the distance between
+        the opinions of agents :math:`i` and :math:`j`, and :math:`y` is the mean opinion distance among
+        all agents in this Graph.
+
+        :return: The measure of opinion radicalisation in this social hierarchy.
+        """
+        K: int = self.node_count
+        opinion_distances: dict[str, float] = {}
+
+        for i in self.graph.nodes():
+            for j in self.graph.nodes():
+                if i == j:
+                    continue
+                opinion_distance: float = i.agent.opinion - j.agent.opinion
+                opinion_distances[f"{i.index},{j.index}"] = opinion_distance
+
+        y: float = sum(opinion_distances.values()) / len(opinion_distances.values())
+
+        summation: float = 0.0
+        for distance in opinion_distances.values():
+            square_distance: float = (distance - y)**2
+            summation += square_distance
+
+        radicalisation_measure: float = (1/(K * (K - 1))) * summation
+        return radicalisation_measure
+
+    def __in__(self, iterable: Iterable[Graph]) -> bool:
+        """
+        Determine if the Graph is contained within the Iterable of Graphs.
+
+        :param iterable: The iterable of Graph objects in which membership is being determined.
+        :return: A boolean indicating if this Graph is contained within the iterable.
+        """
+        for graph in iterable:
+            if self == graph:
+                return True
+        return False
+
+    @override
     def __str__(self) -> str:
         """
         An override of the Graph string representation when calling print().
@@ -641,6 +703,41 @@ class GraphSet:
                     significant_hierarchies.append(hierarchy.name)
         return significant_hierarchies
 
+    def __in__(self, graph: Graph) -> bool:
+        """
+        A method defining how a GraphSet checks for Graph membership.
+
+        :param graph: The Graph object whose membership is being checked for.
+        :return: A boolean indicating if the Graph object is contained in self.graphs.
+        """
+        return graph in self.graphs
+
+    def __contains__(self, graph: Graph) -> bool:
+        """
+        A secondary method defining how a GraphSet checks for Graph membership.
+
+        :param graph: The Graph object whose membership is being checked for.
+        :return: A boolean indicating if the Graph object is contained in self.graphs.
+        """
+        return self.graphs.__contains__(graph)
+
+    def __len__(self) -> int:
+        """
+        A method defining how a GraphSet checks its length.
+
+        :return: An integer specifying the number of Graph objects contained within the GraphSet.
+        """
+        return len(self.graphs)
+
+    def __iter__(self) -> Iterator[Graph]:
+        """
+        A method defining how a GraphSet iterates over the Graphs contained within it.
+
+        :return: An iterator object that iterates over the Graphs in the GraphSet.
+        """
+        return self.graphs.__iter__()
+
+    @override
     def __str__(self) -> str:
         """
         An override of what calling `print()` on this object will output.
