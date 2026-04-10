@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Iterable
 from copy import deepcopy
 from random import Random
 from typing import Any, Iterator, override
 
 import numpy as np
 import polars as pl
+
+from .utils import draw_random_value, value_rw_delta
 
 
 class Agent:
@@ -26,21 +28,22 @@ class Agent:
         :param args: positional arguments that can be passed to each Agent
         :param kwargs: keyword arguments that can be passed to each Agent
         """
-        # TODO: Implement random Agent object generation functions
 
+        # Attributes declared but without initialisation will be defined by self.generate_agent() in a subsequent call if no args are passed
         self.id: str  # Can be any arbitrary string, but likely will follow the form XXXX0000 allowing for up to 9999 agents per community
         self.index: int  # The Agent's index within the AgentSet it belongs in
 
         self.social_weightings: dict[str, float] = {}
-        self.opinion: float = 0.0  # Range always [-1, 1]
+        self.opinion: float  # Range always [-1, 1]
 
         self.previous_opinion: float = (
             0.0  # Used to handle updating during model iterations
         )
-        self.social_susceptibility: float = 0.5  # Range always [0, 1]
+        self.social_susceptibility: float  # Range always [0, 1]
         self.personality: str = "neutral"
         self.radicalised: bool = False
 
+        # If no args have been passed, it is assumed that self.generate_agent() will be subsequently called
         if args:
             for arg in args:
                 match arg:
@@ -53,38 +56,83 @@ class Agent:
                         self.add_attribute("social_susceptibility", value=arg[1])
                     case str():
                         self.id = arg
-
         if kwargs:
             for key, value in kwargs.items():
                 # No checking for duplicate keys; assume that explicitly added kwargs should override any args.
                 self.add_attribute(key, value=value)
 
+    def generate_agent(
+        self,
+        id: str,
+        index: int,
+        hierarchies: list[str],
+        distribution: str = "gaussian",
+        personality: str | None = None,
+        parameters: dict | None = None,
+    ) -> Agent:
+        """
+        Randomly generate an Agent object based on the input parameters.
+
+        :param id: The id that has been assigned for this specific Agent object under the conditions of the model specifications.
+        :param index: The index of the Agent object within the model's AgentSet.
+        :param hierarchies: A list containing the names of all valid social hierarchies in the model.
+        :param distribution: The distribution to use for relevant attribute generation (Valid distributions include: 'gaussian', 'beta')
+        :param personality: A string defining what type of personality the agent will have (defaults to 'neutral' on Agent __init__)
+        :param parameters: A dictionary containing the distribution parameters used to generate random values.
+        :return: The generated Agent object.
+        """
+        # Begin by setting crucial information
+        self.id = id
+        self.index = index
+        if personality:
+            self.personality = personality
+
+        # Generate a weighting for each hierarchy
+        for hierarchy in hierarchies:
+            self.social_weightings[hierarchy] = draw_random_value(
+                distribution, parameters=parameters
+            )
+
+        # Generate the Agent's initial opinion
+        self.opinion = draw_random_value(distribution, parameters=parameters)
+
+        # If the initial opinion is very strong, the Agent is initialised as radicalised
+        if -0.9 >= self.opinion >= 0.9:
+            self.radicalised = True
+
+        # Generate the Agent's susceptibility to social contagion
+        self.social_susceptibility = draw_random_value(
+            distribution, parameters=parameters
+        )
+
+        return self
+
     def add_attribute(
         self,
         name: str,
         value: Any | None = None,
-        mean: float | None = None,
-        sdev: float | None = None,
+        parameters: dict | None = None,
         distribution: str | None = None,
         overwrite: bool = True,
     ) -> None:
-        # TODO: Add support for additional random distributions
         """
         Dynamically add an attribute to this Agent object. If "value" is passed, an explicit initial value is given;
         if "mean" and "sdev" are passed, a value is generated from a random distribution.
         Supported random distributions are:
-            - "normal"
-            - "uniform" -- In the case of uniform, `mean` will be treated as the median value, and `sdev` as the distance between the median and the boundaries
+            - "gaussian"
+            - "beta"
+            - "gamma"
+            - "uniform"
+            - "levy"
 
         :param name: The name of the attribute to be added.
-        :param value: Optional initial value of the attribute.
-        :param mean: Optional mean of the random distribution from which to generate the value
-        :param sdev: Optional standard deviation of the random distribution from which to generate the value
-        :param distribution: Optional string to select which random distribution will be used to generate the value
+        :param value: Initial value of the attribute.
+        :param parameters: The distribution parameters that will be used with the specified distribution for parameter generation
+        :param distribution: String to select which random distribution will be used to generate the value
         """
-        if not value and (not mean and not sdev):
+        if not value and not (distribution and parameters):
             raise ValueError(
-                "Either explicit `value` or distribution `mean` and `sdev` are expected when adding Agent attributes."
+                "Either explicit `value` or distribution and valid distribution parameters are expected when adding Agent attributes."
             )
 
         if not overwrite and name in self.__dict__.keys():
@@ -97,18 +145,10 @@ class Agent:
             if value:
                 # Assume a given explicit value always overrides (mean, sdev)
                 self.__dict__[name] = value
-            elif mean and sdev:
-                match distribution:
-                    case "normal":
-                        self.__dict__[name] = np.random.normal(loc=mean, scale=sdev)
-                    case "uniform":
-                        uniform_range = (mean - sdev, mean + sdev)
-                        self.__dict__[name] = np.random.uniform(
-                            low=uniform_range[0], high=uniform_range[1]
-                        )
-                    case None:
-                        # Fall back on the normal distribution
-                        self.__dict__[name] = np.random.normal(loc=mean, scale=sdev)
+            elif distribution and parameters:
+                self.__dict__[name] = draw_random_value(
+                    distribution, parameters=parameters
+                )
 
     def get_attribute(self, name: str) -> Any:
         try:
@@ -146,6 +186,9 @@ class Agent:
             return True
 
         match self.__getattribute__("personality"):
+            case "neutral":
+                # This will mean that radicalisation is exclusively determined by the strength of the Agent's opinion
+                pass
             case "rational":
                 # This will likely mean that the agent is more disposed towards considering tangible benefits and their own
                 # opinions when determining radicalisation, rather than external influences
@@ -163,24 +206,27 @@ class Agent:
                 pass
         return False  # TODO: Finish this method (returning False to suppress typing warnings)
 
-    def evolve_hierarchies(self):
+    def evolve_hierarchies(
+        self, rw_distributions: dict[str, tuple[float, float]]
+    ) -> None:
         """
         Experimental function that aims to model the constantly evolving 'intrinsic value' that Agents place on
         the social hierarchies that they belong in over time.
-        """
-        # TODO: Implement this function
-        raise NotImplementedError(
-            "Dynamic agent hierarchy weighting has not been implemented yet."
-        )
 
-    def evolve_relationships(self):
+        :param rw_distributions: A dictionary specifying the global random walk distributions defined for each hierarchy in the model.
         """
-        Experimental function that aims to model the constantly evolving relationships between Agents over time
-        """
-        # TODO: Implement this function (may already be handled at the network level in graphs.py?)
-        raise NotImplementedError(
-            "Agent relationship evolution has not been implemented as a feature yet."
-        )
+        for key, value in rw_distributions.items():
+            rw_result: float = value_rw_delta(
+                self.social_weightings[key], value[0], value[1]
+            )
+
+            # Constrain the result back to [-1, 1] if necessary
+            if rw_result < -1.0:
+                self.social_weightings[key] = -1.0
+            elif rw_result > 1.0:
+                self.social_weightings[key] = 1.0
+            else:
+                self.social_weightings[key] = rw_result
 
     def life_events(self):
         """
@@ -269,11 +315,13 @@ class AgentSet:
     def add(self, agent: Agent) -> int:
         """
         Add an Agent to the AgentSet.
+
         :param agent: The Agent object to be added.
+        :return: The index of the newly added Agent.
         """
         self.agents.append(agent)
         self.agents[-1].index = len(self.agents)
-        return 1
+        return self.agents[-1].index
 
     def update_indices(self) -> None:
         """

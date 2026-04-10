@@ -11,7 +11,11 @@ import polars as pl
 import rustworkx as rx
 
 from .agents import Agent
-from .utils import beta_value_attenuation, connected_watts_strogatz_graph
+from .utils import (
+    beta_value_attenuation,
+    connected_watts_strogatz_graph,
+    value_rw_delta,
+)
 
 
 class GraphNode:
@@ -512,7 +516,9 @@ class Graph:
         in the hierarchy will be shifted. Aims to simulate dynamic relationships between agents across timesteps.
         """
         for edge in self.graph.edges():
-            rw_value: float = np.random.normal(self.rw_params[0], self.rw_params[1])
+            rw_value: float = value_rw_delta(
+                edge.weighting, self.rw_params[0], self.rw_params[1]
+            )
             if (edge.weighting + rw_value < -1.0) or (edge.weighting + rw_value > 1.0):
                 # Constrain the relationship weightings to [-1, 1]
                 continue
@@ -587,10 +593,10 @@ class Graph:
 
         summation: float = 0.0
         for distance in opinion_distances.values():
-            square_distance: float = (distance - y)**2
+            square_distance: float = (distance - y) ** 2
             summation += square_distance
 
-        radicalisation_measure: float = (1/(K * (K - 1))) * summation
+        radicalisation_measure: float = (1 / (K * (K - 1))) * summation
         return radicalisation_measure
 
     def __in__(self, iterable: Iterable[Graph]) -> bool:

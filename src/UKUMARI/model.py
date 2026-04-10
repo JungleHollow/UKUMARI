@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from random import choices
 from typing import Any
 
 from .agents import Agent, AgentSet
@@ -64,6 +65,15 @@ class ABModel:
             "Random graph generation function in ABModel not implemented yet."
         )
 
+    def add_agent(self, agent: Agent) -> int:
+        """
+        Add a single new Agent to the model's AgentSet, returning its index within the AgentSet.
+
+        :param agent: The Agent object to add to the AgentSet.
+        :return: The index of the newly added Agent in the AgentSet.
+        """
+        return self.agents.add(agent)
+
     def add_agents(self, agents: list[Agent]) -> None:
         """
         Add new Agents to the Model's AgentSet.
@@ -73,26 +83,44 @@ class ABModel:
         for agent in agents:
             self.agents.add(agent)
 
-    def generate_agents(self, attributes: dict, number: int = 100) -> None:
+    def generate_agents(
+        self,
+        id_base: str,
+        hierarchies: list[str],
+        personality_probs: dict[str, float],
+        distribution: str = "gaussian",
+        parameters: dict | None = None,
+        number: int = 100,
+    ) -> None:
         """
-        Randomly generates a number of Agent objects using the given attribute dictionary.
-        The dictionary items should be singular explciit values to assign for all agents, or tuples representing:
-            (mean, standard deviation, distribution to use) for random generation
+        Randomly generates a number of Agent objects.
 
-        :param attributes: A dictionary containing (attribute: tuple) pairs for Agent attribute setting
+        :param id_base: a 4-character alphabetic string that serves as the base of the XXXXnnnn id for each Agent.
+        :param hierarchies: A list of strings representing the names of each social hierarchy that will exist in the model.
+        :param personality_probs: A dictionary of <personality : probability> specifying the probability of an Agent having any given personality.
+        :param distribution: The distribution from which any random values will be drawn.
+        :param parameters: Any explicit parameters that the distribution should use when being created.
         :param number: Number of agents to be randomly created.
         """
-        # TODO: Reimplement this function (will be done similar to generate_graphs, where main function is in agents.py and this is a wrapper...)
+        # Convert to separate lists for use in random.choices()
+        personalities: list[str] = list(personality_probs.keys())
+        probabilities: list[float] = list(personality_probs.values())
+
         for i in range(number):
             new_agent: Agent = Agent()
-            for key, value in attributes.items():
-                if len(value) == 1:
-                    new_agent.add_attribute(key, value=value)
-                else:
-                    new_agent.add_attribute(
-                        key, mean=value[0], sdev=value[1], distribution=value[2]
-                    )
-            self.agents.add(new_agent)
+            agent_id: str = f"{id_base}{i:04}"
+            agent_index: int = self.add_agent(new_agent)
+            agent_personality: str = choices(personalities, weights=probabilities, k=1)[
+                0
+            ]
+            new_agent.generate_agent(
+                agent_id,
+                agent_index,
+                hierarchies,
+                distribution=distribution,
+                personality=agent_personality,
+                parameters=parameters,
+            )
 
     def iterate(self) -> None:
         """
