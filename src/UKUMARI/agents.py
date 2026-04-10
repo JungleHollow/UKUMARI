@@ -34,6 +34,7 @@ class Agent:
         self.index: int  # The Agent's index within the AgentSet it belongs in
 
         self.social_weightings: dict[str, float] = {}
+        self.is_silenced: dict[str, bool] = {}
         self.opinion: float  # Range always [-1, 1]
 
         self.previous_opinion: float = (
@@ -49,6 +50,8 @@ class Agent:
                 match arg:
                     case dict():
                         self.add_attribute("social_weightings", value=arg)
+                        for hierarchy in self.social_weightings.keys():
+                            self.is_silenced[hierarchy] = False
                     case float():
                         self.add_attribute("opinion", value=arg)
                     case tuple():
@@ -87,11 +90,12 @@ class Agent:
         if personality:
             self.personality = personality
 
-        # Generate a weighting for each hierarchy
+        # Generate a weighting for each hierarchy; initialise the is_silenced flag for that hierarchy
         for hierarchy in hierarchies:
             self.social_weightings[hierarchy] = draw_random_value(
                 distribution, parameters=parameters
             )
+            self.is_silenced[hierarchy] = False
 
         # Generate the Agent's initial opinion
         self.opinion = draw_random_value(distribution, parameters=parameters)
@@ -160,19 +164,97 @@ class Agent:
             )
             return None
 
-    def step(self):
+    def step(self, rw_distributions: dict[str, tuple[float, float]]) -> None:
         """
-        Step the individual agent object
-        """
-        # TODO: Implement this function
-        pass
+        Step the individual agent object:
+            1. Handle dynamic social hierarchy weightings
 
-    def update(self):
+        :param rw_distributions: A dictionary of <hierarchy name : (mean, variance)> defining the random walk distributions of each social
+                                    hierarchy in the model
         """
-        Updates the internal state of the agent after the model has stepped.
+        self.evolve_hierarchies(rw_distributions)
+
+    def update(self, opinion_silenced: dict[str, bool], negation_ocurred: bool) -> None:
         """
-        # TODO: Implement this function
-        pass
+        Updates the internal state of the agent after the model has stepped:
+            1. Updates what social hierarchies the Agent's opinion is currently silenced in
+            2. Inverts the Agent's current opinion if opinion negation ocurred
+
+        :param opinion_silenced: A dictionary of <hierarchy : boolean> indicating which social hierarchies the Agent is silencing themselves in.
+        :param negation_ocurred: A boolean indicating if opinion negation has ocurred in the current iteration.
+        """
+        self.is_silenced = opinion_silenced  # Update is_silenced
+        if negation_ocurred:
+            self.opinion *= -1.0  # Invert the Agent's current opinion
+
+    def opinion_silencing(
+        self,
+        hierarchy: str,
+        estimated_opinion_climate: float,
+        silencing_threshold: float | None = None,
+    ) -> tuple[bool, float]:
+        """
+        Determines if an agent will become silenced in a given social hierarchy based on their attributes.
+
+        If no silencing threshold has been passed, each Agent's own social susceptibility is used as the threshold instead.
+
+        :param hierarchy: The name of the social hierarchy that opinion silencing is being checked in.
+        :param estimated_opinion_climate: The opinion climate perceived by the Agent in this hierarchy (not necessarily objectively 'accurate').
+        :param silencing_threshold: A hierarchy or global silencing threshold that must be surpassed for silencing to occur.
+        :return: A (boolean, absolute_difference) tuple indicating if silencing occurs, and the absolute difference between the perceived opinion climate and the Agent's own opinion.
+        """
+        # It is assumed that a radicalised Agent will never silence themselves regardless of the perceived opinion climate
+        if self.radicalised:
+            return False, 0.0
+
+        threshold: float
+        if silencing_threshold:
+            threshold = silencing_threshold
+        else:
+            threshold = self.social_susceptibility
+
+        absolute_difference: float = 0.0
+
+        if self.personality in ["neutral", "rational", "erratic"]:
+            # Cases where opinion silencing will be less influenced by the surrounding opinion climate.
+            absolute_difference = abs(estimated_opinion_climate - self.opinion) * 0.8
+        elif self.personality in ["impulsive", "social"]:
+            # Cases where opinion silencing will be much more influenced by the surrounding opinion climate.
+            absolute_difference = abs(estimated_opinion_climate - self.opinion)
+
+        return absolute_difference > threshold, absolute_difference
+
+    def opinion_negation(
+        self, hierarchy: str, absolute_difference: float, threshold: float
+    ) -> bool:
+        """
+        Checks if the Agent has experienced sufficiently 'overwhelming' social pressure in a hierarchy leading to a complete
+        reversal of their opinion.
+
+        :param hierarchy: The name of the social hierarchy where opinion negation is being checked for.
+        :param absolute_difference: The absolute difference between the perceived opinion climate and the Agent's own opinion.
+        :param threshold: A global model threshold that has been specified for this effect to occur.
+        :return: A boolean indicating if the Agent's opinion experienced a total negation.
+        """
+        # It is assumed that a radicalised Agent will never experience a total opinion reversal regardless of the perceived opinion climate
+        if self.radicalised:
+            return False
+
+        negation_strength: float = absolute_difference
+
+        # Multiplication by (susceptibility * hierarchy weighting) will always decrease negation strength, whilst division will always increase it
+        if self.personality in ["neutral", "rational"]:
+            # Cases where opinion negation is less likely to occur
+            negation_strength *= (
+                self.social_susceptibility * self.social_weightings[hierarchy]
+            )
+        elif self.personality in ["erratic", "impulsive", "social"]:
+            # Cases where opinion negation is more likely to occur
+            negation_strength /= (
+                self.social_susceptibility * self.social_weightings[hierarchy]
+            )
+
+        return negation_strength > threshold
 
     def radicalisation(self, neighbours: Iterable[Agent]) -> bool:
         """
@@ -185,7 +267,7 @@ class Agent:
         if self.radicalised:
             return True
 
-        match self.__getattribute__("personality"):
+        match self.personality:
             case "neutral":
                 # This will mean that radicalisation is exclusively determined by the strength of the Agent's opinion
                 pass
@@ -201,8 +283,6 @@ class Agent:
                 pass
             case "social":
                 # Radicalisation is strongly determined by the opinion climate and neighbour opinions rather than internal factors
-                pass
-            case None:
                 pass
         return False  # TODO: Finish this method (returning False to suppress typing warnings)
 

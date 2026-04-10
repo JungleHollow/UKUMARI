@@ -472,10 +472,10 @@ class Graph:
 
     def step(self) -> None:
         """
-        Step the individual Graph object.
+        Step the individual Graph object:
+            1. Handle dynamic relationships within the graph.
         """
-        # TODO: Implement this function
-        pass
+        self.dynamic_relationships()
 
     def neighbour_influences(self, agent: Agent) -> float:
         """

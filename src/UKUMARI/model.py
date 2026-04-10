@@ -16,12 +16,23 @@ class ABModel:
 
     # TODO: Add functions to calculate network-level informational statistics (i.e. layer interdependence, radicalisation log odds, etc...)
 
-    def __init__(self, iterations: int = 100) -> None:
+    def __init__(
+        self,
+        hierarchy_names: list[str],
+        hierarchy_rw_distributions: list[tuple[float, float]],
+        iterations: int = 100,
+        negation_threshold: float = 0.95,
+    ) -> None:
         """
+        :param hierarchy_names: A list of strings representing the names of all social hierachies that will exist in the model
+        :param hierarchy_rw_distributions: A list of (mean, variance) tuples defining the parameters of normal distributions used in random walks for their corresponding hierarchies.
         :param iterations: The number of iterations that the model will run for
-        :param xlims: A (lower, upper) tuple representing the limits of the model's x-axis
-        :param ylims: A (lower, upper) tuple representing the limits of the model's y-axis
+        :param negation_threshold: A threshold that, when surpassed by Agents, will cause their opinion to become its additive inverse.
         """
+        self.hierarchy_information: dict[str, tuple[float, float]] = {}
+        for idx, hierarchy in enumerate(hierarchy_names):
+            self.hierarchy_information[hierarchy] = hierarchy_rw_distributions[idx]
+
         self.graphs: GraphSet = GraphSet(self)
         self.agents: AgentSet = AgentSet(self)
 
@@ -29,6 +40,8 @@ class ABModel:
         self.visualiser: ABVisualiser = ABVisualiser(self)
         self.current_iteration: int = 0
         self.max_iterations: int = iterations
+
+        self.negation_threshold: float = negation_threshold
 
     def add_graphs(
         self, graphs: list[Any], names: list[str], rw_params: list[tuple[float, float]]
@@ -49,15 +62,12 @@ class ABModel:
                 new_graph.load_graph(graph, names[idx])
                 self.graphs.add_graph(new_graph)
 
-    def generate_graphs(
-        self, agents: list[Any], names: list[str], method: str = "small-world"
-    ) -> None:
+    def generate_graphs(self, agents: list[Any], method: str = "small-world") -> None:
         """
         Randomly generates graphs for the given social hierarchy names using the specified method.
         Hierarchies will only contain the agents whose names are passed to the function.
 
         :param agents: A list of agent IDs or Agent objects which determines who is included in the hierarchies
-        :param names: The names of the social hierarchies for which graphs are being generated
         :param method: The social network graph generation method to use. Options include: 'small-world', 'scale-free', 'full'. Defaults to 'small-world'
         """
         # TODO: Implement this function
@@ -86,7 +96,6 @@ class ABModel:
     def generate_agents(
         self,
         id_base: str,
-        hierarchies: list[str],
         personality_probs: dict[str, float],
         distribution: str = "gaussian",
         parameters: dict | None = None,
@@ -96,7 +105,6 @@ class ABModel:
         Randomly generates a number of Agent objects.
 
         :param id_base: a 4-character alphabetic string that serves as the base of the XXXXnnnn id for each Agent.
-        :param hierarchies: A list of strings representing the names of each social hierarchy that will exist in the model.
         :param personality_probs: A dictionary of <personality : probability> specifying the probability of an Agent having any given personality.
         :param distribution: The distribution from which any random values will be drawn.
         :param parameters: Any explicit parameters that the distribution should use when being created.
@@ -105,6 +113,9 @@ class ABModel:
         # Convert to separate lists for use in random.choices()
         personalities: list[str] = list(personality_probs.keys())
         probabilities: list[float] = list(personality_probs.values())
+
+        # Extract the hierarchy names from the information dictionary
+        hierarchies: list[str] = list(self.hierarchy_information.keys())
 
         for i in range(number):
             new_agent: Agent = Agent()
@@ -158,7 +169,7 @@ class ABModel:
         for graph in self.graphs:
             graph.step()
         for agent in self.agents:
-            agent.step()
+            agent.step(self.hierarchy_information)
 
     def update(self) -> None:
         """
@@ -167,7 +178,19 @@ class ABModel:
         on these climates.
         """
         for agent in self.agents:
-            agent.update()
+            silenced: dict[str, bool] = {}
+            negation: bool = False
+            for graph in self.graphs:
+                est_opinion_climate: float = graph.estimate_opinion_climate(agent)
+                is_silenced: tuple[bool, float] = agent.opinion_silencing(
+                    graph.name, est_opinion_climate
+                )
+                silenced[graph.name] = is_silenced[0]
+                if not negation:
+                    negation = agent.opinion_negation(
+                        graph.name, is_silenced[1], self.negation_threshold
+                    )
+            agent.update(silenced, negation)
 
     def calculate_navigability(
         self, from_node: tuple[int, int], to_node: tuple[int, int]
