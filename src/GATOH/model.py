@@ -3,6 +3,8 @@ from __future__ import annotations
 from random import choices
 from typing import Any
 
+from numpy import log
+
 from .agents import Agent, AgentSet
 from .graphs import Graph, GraphSet
 from .logging import GATOHLogger
@@ -234,7 +236,67 @@ class ABModel:
             4. Layer interdependence for each hierarchy
         """
         # TODO: Implement this function
-        pass
+        aggregate_opinion: float = self.calculate_aggregate_opinion()
+        radicalisation_logodds: float = self.calculate_radicalisation_logodds()
+        layer_interdependences: dict[str, float] = {}
+        for hierarchy in self.hierarchy_information.keys():
+            layer_interdependences[hierarchy] = self.calculate_interdependence(
+                self.graphs.get_index(hierarchy)
+            )
+
+        layers_polarisation: dict[str, float] = self.calculate_layers_polarisation()
+
+        self.logger.iteration(
+            aggregate_opinion,
+            radicalisation_logodds,
+            layer_interdependences,
+            layers_polarisation,
+        )
+
+    def calculate_aggregate_opinion(self) -> float:
+        """
+        Calculates the aggregate network opinion by iterating over each Agent in the model.
+
+        :return: The aggregate network opinion value.
+        """
+        all_opinions: list[float] = []
+        for agent in self.agents:
+            all_opinions.append(agent.opinion)
+
+        opinion_sum: float = sum(all_opinions)
+        average_opinion: float = opinion_sum / len(all_opinions)
+
+        return average_opinion
+
+    def calculate_radicalisation_logodds(self) -> float:
+        """
+        Calculates the log odds of an Agent being radicalised within the model.
+
+        :return: The log odds of agent radicalisation.
+        """
+        radicalised_count: int = 0
+        for agent in self.agents:
+            if agent.radicalised:
+                radicalised_count += 1
+
+        radicalisation_p: float = radicalised_count / len(self.agents)
+        log_odds: float = log(radicalisation_p / (1.0 - radicalisation_p))
+        return log_odds
+
+    def calculate_layers_polarisation(self) -> dict[str, float]:
+        r"""
+        Calculate the polarisation of the opinion climate within each hierarchy by calling each graph's calculate_polarisation() method.
+
+        :return: A <hierarchy : value> dictionary containing the polarisation value for each hierarchy.
+        """
+        layers_polarisation: dict[str, float] = {}
+
+        for hierarchy in self.hierarchy_information.keys():
+            layers_polarisation[hierarchy] = self.graphs.calculate_polarisation(
+                hierarchy
+            )
+
+        return layers_polarisation
 
     def calculate_navigability(
         self, from_node: tuple[int, int], to_node: tuple[int, int]

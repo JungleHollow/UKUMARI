@@ -672,6 +672,21 @@ class GraphSet:
         print(f"No graph representing the social hierarchy '{hierarchy}' was found...")
         return None
 
+    def get_index(self, hierarchy: str) -> int:
+        """
+        A getter function that returns the index of a given hierarchy within the GraphSet.
+
+        :param hierarchy: The name of the hierarchy that is being searched for.
+        :return: The index of the hierarchy within the GraphSet.
+        """
+        for idx, graph in enumerate(self.graphs):
+            if graph.name == hierarchy:
+                return idx
+
+        raise KeyError(
+            f"The social hierarchy '{hierarchy}' does not exist in the GraphSet -- cannot an index."
+        )
+
     def list_hierarchies(self, print_out: bool = False) -> list[str]:
         """
         A utility function that iterates over the GraphSet and prints out the names of all the social hierarchies that are present.
@@ -689,6 +704,16 @@ class GraphSet:
             )
 
         return social_hierarchies
+
+    def calculate_polarisation(self, hierarchy: str) -> float:
+        """
+        A wrapper that calls a specific hierarchy graph's calculate_polarisation function and returns its value.
+
+        :param hierarchy: The name of the hierarchy for which polarisation is being calculated.
+        :return: The hierarchy polarisation value.
+        """
+        hierarchy_graph: Any = self.get_hierarchy(hierarchy)
+        return hierarchy_graph.calculate_polarisation()
 
     def agent_opinion_threshold(
         self, agent: Agent, threshold: float = 0.9

@@ -22,8 +22,8 @@ class LoggerVariables:
     negated_agents: list[int] = field(default_factory=list)
     # The calculated layer interdependence of each hierarchy at each timestep
     layer_interdependences: dict[str, list[float]] = field(default_factory=dict)
-    # The calculated layer navigabilities of each hierarchy at each timestep
-    layer_navigabilities: dict[str, list[float]] = field(default_factory=dict)
+    # The calculated layer polarisation of each hierarchy at each timestep
+    layers_polarisation: dict[str, list[float]] = field(default_factory=dict)
     # The log odds of radicalisation in the model at each timestep
     radicalisation_logodds: list[float] = field(default_factory=list)
     # The current iteration that the simulation is at
@@ -49,7 +49,7 @@ class LoggerVariables:
             self.layer_interdependences[hierarchy] = [
                 0.0 for _ in range(self.max_iterations)
             ]
-            self.layer_navigabilities[hierarchy] = [
+            self.layers_polarisation[hierarchy] = [
                 0.0 for _ in range(self.max_iterations)
             ]
 
@@ -96,19 +96,10 @@ class LoggerVariables:
         t_last: int = self.current_iteration - 2
         # -1 and -2 indexes due to indexing logic for lists...
 
-        self.aggregate_opinions[t_now] = self.aggregate_opinions[t_last]
+        # Only these 3 variables must be carried over, all others are calculated at the end of the timestep independently
         self.radicalised_agents[t_now] = self.radicalised_agents[t_last]
         self.silenced_agents[t_now] = self.silenced_agents[t_last]
         self.negated_agents[t_now] = self.negated_agents[t_last]
-        self.radicalisation_logodds[t_now] = self.radicalisation_logodds[t_last]
-
-        for hierarchy in self.layer_interdependences.keys():
-            self.layer_interdependences[hierarchy][t_now] = self.layer_interdependences[
-                hierarchy
-            ][t_last]
-            self.layer_navigabilities[hierarchy][t_now] = self.layer_navigabilities[
-                hierarchy
-            ][t_last]
 
     def current_layers_repr(self) -> str:
         """
@@ -117,16 +108,16 @@ class LoggerVariables:
         :return: A formatted substring containing all the per-hierarchy variables for the current model iteration.
         """
         output_string: str = (
-            "\tHierarchy Name\tLayer Interdependence\tLayer Navigability\n"
+            "\tHierarchy Name\tLayer Interdependence\tLayer Polarisation\n"
         )
         for hierarchy in self.layer_interdependences.keys():
             interdepence: float = self.layer_interdependences[hierarchy][
                 self.current_iteration
             ]
-            navigability: float = self.layer_navigabilities[hierarchy][
+            polarisation: float = self.layers_polarisation[hierarchy][
                 self.current_iteration
             ]
-            hierarchy_string: str = f"\t{hierarchy}\t{interdepence}\t{navigability}\n"
+            hierarchy_string: str = f"\t{hierarchy}\t{interdepence}\t{polarisation}\n"
             output_string += hierarchy_string
         return output_string
 
@@ -178,7 +169,7 @@ class GATOHLogger:
         self.write_file: bool = write_file
         self.variables: LoggerVariables = LoggerVariables(max_iterations, hierarchies)
 
-    def new_iteration(self, init: bool) -> None:
+    def new_iteration(self, init: bool = False) -> None:
         """
         A wrapper that calls LoggerVariables new_iteration().
 
@@ -191,7 +182,7 @@ class GATOHLogger:
         aggregate_opinion: float,
         radicalisation_logodds: float,
         layer_interdependences: dict[str, float],
-        layer_navigabilities: dict[str, float],
+        layers_polarisation: dict[str, float],
     ) -> None:
         """
         Store all relevant model variables and states based on the level of logging that has been specified.
@@ -199,7 +190,7 @@ class GATOHLogger:
         :param aggregate_opinion: The aggregate network opinion that has been observed in the model at the end of this iteration.
         :param radicalisation_logodds: The log odds of an agent being radicalised in the model at the end of this iteration.
         :param layer_interdependences: A <hierarchy : value> dictionary containing the calculated layer interdependency for each hierarchy in the model at the end of this iteration.
-        :param layer_navigabilities: A <hierarchy : value> dictionary containing the calculated layer navigability for each hierarchy in the model at the end of this iteration.
+        :param layers_polarisation: A <hierarchy : value> dictionary containing the calculated polarisation for each hierarchy in the model at the end of this iteration.
         """
         # TODO: Implement this function
         pass
