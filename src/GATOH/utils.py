@@ -9,8 +9,7 @@ from typing import Any
 
 import numpy as np
 import rustworkx as rx
-import rustworkx.generators as rx_gen  # Workaround for unrecognised module import in base rustworkx
-from scipy.stats import beta, truncnorm, gamma, levy, uniform, norm
+from scipy.stats import beta, gamma, levy, norm, truncnorm, uniform
 
 # ========== Graph utils ========== #
 
@@ -63,15 +62,25 @@ def watts_strogatz_graph(
             "k is larger than or equal to n; choose a smaller k or larger n."
         )
 
-    G: rx.PyGraph = rx_gen.empty_graph(n)
+    G: rx.PyGraph = rx.PyGraph()
     nodes: list[int] = list(range(n))  # nodes labeled 0 to n-1
+
+    G.add_nodes_from(
+        nodes
+    )  # Add the index-labelled nodes for now (GraphNode objects will replace these in the calling module)
 
     # Connect each node to k/2 neighbours
     for j in range(1, k // 2 + 1):
         targets: list[int] = (
             nodes[j:] + nodes[0:j]
         )  # first j nodes become last in the list
-        G.add_edges_from(zip(nodes, targets, [0.0 for _ in range(len(nodes))]))
+
+        weightings: list[float] = [0.0 for _ in range(len(nodes))]
+        edges_info: list[tuple[int, int, float]] = list(zip(nodes, targets, weightings))
+        G.add_edges_from(edges_info)
+
+        # Manual garbage collection
+        del weightings, edges_info
 
     # Rewire edges from each node
     # Loop over all nodes in order (label) and neighbours in order (distance)
@@ -176,6 +185,7 @@ def beta_value_attenuation(input_value: float, a: float = 0.9, b: float = 0.9) -
 
 # ========== Random Generation Utils ==========
 
+
 def draw_random_value(distribution: str, parameters: dict | None = None) -> float:
     """
     Utility function that handles random value generation from multiple distributions in the same function.
@@ -195,12 +205,22 @@ def draw_random_value(distribution: str, parameters: dict | None = None) -> floa
     match distribution:
         case "gaussian":
             if parameters:
-                drawn_value = truncnorm.rvs(parameters["a"], parameters["b"], loc=parameters["loc"], scale=parameters["scale"])
+                drawn_value = truncnorm.rvs(
+                    parameters["a"],
+                    parameters["b"],
+                    loc=parameters["loc"],
+                    scale=parameters["scale"],
+                )
             else:
                 drawn_value = truncnorm.rvs(0.0, 1.0)
         case "beta":
             if parameters:
-                drawn_value = beta.rvs(parameters["a"], parameters["b"], loc=parameters["loc"], scale=parameters["scale"])
+                drawn_value = beta.rvs(
+                    parameters["a"],
+                    parameters["b"],
+                    loc=parameters["loc"],
+                    scale=parameters["scale"],
+                )
             else:
                 drawn_value = beta.rvs(1.0, 1.0)
         case "levy":
@@ -210,15 +230,20 @@ def draw_random_value(distribution: str, parameters: dict | None = None) -> floa
                 drawn_value = levy.rvs()
         case "uniform":
             if parameters:
-                drawn_value = uniform.rvs(loc=parameters["loc"], scale=parameters["scale"])
+                drawn_value = uniform.rvs(
+                    loc=parameters["loc"], scale=parameters["scale"]
+                )
             else:
                 drawn_value = uniform.rvs()
         case "gamma":
             if parameters:
-                drawn_value = gamma.rvs(parameters["a"], loc=parameters["loc"], scale=parameters["scale"])
+                drawn_value = gamma.rvs(
+                    parameters["a"], loc=parameters["loc"], scale=parameters["scale"]
+                )
             else:
                 drawn_value = gamma.rvs(1.0)
     return drawn_value
+
 
 def random_coinflip(return_type: str) -> Any:
     """
@@ -247,7 +272,9 @@ def random_coinflip(return_type: str) -> Any:
 
     return coinflip_result  # Defaults to boolean if no valid input type was passed.
 
+
 # ========== Random Walk Utils ==========
+
 
 def value_rw_delta(input_value: float, mean: float, variance: float) -> float:
     """

@@ -77,7 +77,7 @@ class ABModel:
     def generate_graphs(
         self,
         hierarchies: list[str],
-        agents: list[Any],
+        agents: list[Any] | AgentSet,
         method: str = "small-world",
         agent_subsetting: bool = False,
         rw_params: list[tuple[float, float]] | None = None,
@@ -92,18 +92,24 @@ class ABModel:
         :param agent_subsetting: A boolean indicating if the agents should be sampled into random subsets when generating each graph.
         :param rw_params: A list of (mean, variance) tuples containing the random-walk distributions for each of the generated graphs.
         """
-        agent_sample: np.ndarray = np.array(agents)
+        agent_array: np.ndarray = np.array(agents)
+        agent_sample: list[Agent] = []
 
         for idx, hierarchy in enumerate(hierarchies):
             if agent_subsetting:
-                random_k: int = randint(len(agents) // 10, len(agents) - 1)
-                agent_sample = np.random.choice(agents, size=random_k, replace=False)
+                random_k: int = randint(len(agents) // 4, len(agents))
+                if type(agents) is list:
+                    agent_sample = list(
+                        np.random.choice(agent_array, size=random_k, replace=False)
+                    )
+                elif type(agents) is AgentSet:
+                    agent_sample = agents.sample(random_k)
 
             hierarchy_rw_param: tuple[float, float] = (0.0, 0.1)
             if rw_params:
                 hierarchy_rw_param = rw_params[idx]
             hierarchy_graph: Graph = Graph(hierarchy, hierarchy_rw_param)
-            hierarchy_graph.generate_graph(list(agent_sample), method=method)
+            hierarchy_graph.generate_graph(agent_sample, method=method)
             self.add_graph(hierarchy_graph)
 
     def add_agent(self, agent: Agent) -> int:

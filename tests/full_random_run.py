@@ -9,60 +9,38 @@ import src.GATOH.agents as agt
 import src.GATOH.graphs as gr
 import src.GATOH.model as md
 
-rd.seed(1234)
-N_INDIVIDUALS: int = 10
+rd.seed(1312)
+N_INDIVIDUALS: int = 100
+AGENT_ID_BASE: str = "TEST"  # Define the Id base for the test case
+
+HIERARCHY_NAMES: list[str] = [
+    "close_hierarchy",
+    "hierarchy_a",
+    "hierarchy_b",
+    "decaying_hierarchy",
+]
+
+HIERARCHY_RW_DISTRIB: list[tuple[float, float]] = [
+    (0, 0.01),  # Close hierarchy
+    (0, 0.1),
+    (0, 0.2),
+    (-0.05, 0.02),  # "decaying" hierarchy
+]
+
+AGENT_PERSONALITIES: dict[str, float] = {
+    # Basic case using only 3 of the available personality types
+    "neutral": 0.6,
+    "social": 0.2,
+    "rational": 0.2,
+}
 
 if __name__ == "__main__":
-    individuals: list = []
-    for i in range(N_INDIVIDUALS):
-        tmp_weightings = {
-            "base_graph": 0.5,
-            "hierarchy_0": rd.random(),
-            "hierarchy_1": rd.random(),
-            "hierarchy_2": rd.random(),
-            "hierarchy_3": rd.random(),
-        }
-        tmp_agent = agt.Agent(
-            id=f"{i}", social_weightings=tmp_weightings, opinion=rd.uniform(-1, 1)
-        )
-        individuals.append(tmp_agent)
-
-    layers: dict = {}
-
-    base_graph: gr.Graph = gr.Graph("base_graph", (0, 0.1))
-    base_graph.add_nodes(individuals)
-    layers["base_graph"] = base_graph
-
-    graph_density: list[float] = [0.3, 0.7, 0.9, 0.45]
-
-    for j in range(4):
-        tmp_graph: gr.Graph = deepcopy(base_graph)
-
-        for k in range(int((N_INDIVIDUALS**2) * graph_density[j])):
-            m: int = int(rd.choice(individuals).id)
-            n: int = int(rd.choice(individuals).id)
-            if m != n:
-                tmp_rel: float = rd.random()
-                tmp_edge: dict = {
-                    "from_node": [m],
-                    "to_node": [n],
-                    "weighting": [tmp_rel],
-                }
-                tmp_graph.add_edges(tmp_edge)
-
-        layers[f"hierarchy_{j}"] = tmp_graph
-
-    graph_distribution: list[tuple[float, float]] = [
-        (0, 0.1),
-        (0, 0.3),
-        (0, 0.1),
-        (0, 0.05),
-        (0, 0.6),
-    ]
-
-    model = md.ABModel(100)
-    model.add_graphs(list(layers.values()), list(layers.keys()), graph_distribution)
-    model.add_agents(individuals)
+    model = md.ABModel(HIERARCHY_NAMES, HIERARCHY_RW_DISTRIB, 100)
+    model.generate_agents(AGENT_ID_BASE, AGENT_PERSONALITIES, number=N_INDIVIDUALS)
+    model.generate_graphs(
+        HIERARCHY_NAMES, model.agents, agent_subsetting=True
+    )  # Set agent_subsetting to True to have significant differences between hierarchies in this test
+    model.iterate()
 
     for agent in model.agents.agents:
         print(agent.opinion)

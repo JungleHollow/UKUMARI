@@ -258,8 +258,8 @@ class Graph:
         match method:
             case "small-world":
                 # Watts-Strogatz
-                k: int = np.ceil(
-                    np.log(n)
+                k: int = int(
+                    np.ceil(np.log(n))
                 )  # The smallest integer which is larger than log(n) to guarantee graph connectivity
                 generated_graph = connected_watts_strogatz_graph(
                     n, k, self.generation_params["p"]
@@ -318,13 +318,18 @@ class Graph:
 
         self.graph = generated_graph  # Store the generated graph as the object's "graph" attribute (with 0.0 weights currently)
 
-        for edge in generated_graph.weighted_edge_list():
+        for index, edge in generated_graph.edge_index_map().items():
             generated_value = random_gen.uniform(
                 -1, 1
             )  # Generate a random value in the range [-1, 1]
-            self.change_weights(
-                edge[0], edge[1], generated_value
-            )  # Update the edge weighting in the graph
+
+            graph_edge: GraphEdge = GraphEdge(
+                self.name, edge[0], edge[1], weighting=generated_value
+            )
+
+            self.graph.update_edge_by_index(
+                index, graph_edge
+            )  # Update the edge with a GraphEdge object
 
     def relationship_exists(self, from_node: int, to_node: int) -> int | None:
         """
@@ -385,8 +390,8 @@ class Graph:
         Updates the weight of the relationship between two agents in the graph.
         If no relationship previously exists, a new one is created.
 
-        :param node_1: Some Agent in the graph.
-        :param node_2: Some other Agent in the graph.
+        :param node_1: The index of some Agent in the graph.
+        :param node_2: The index  of some other Agent in the graph.
         :param value: The new weight to assign.
         """
         edge_index: int | None = self.relationship_exists(node_1, node_2)

@@ -45,6 +45,9 @@ class LoggerVariables:
         self.negated_agents = [0 for _ in range(self.max_iterations)]
         self.radicalisation_logodds = [0.0 for _ in range(self.max_iterations)]
 
+        self.layer_interdependences = {}
+        self.layers_polarisation = {}
+
         for hierarchy in hierarchies:
             self.layer_interdependences[hierarchy] = [
                 0.0 for _ in range(self.max_iterations)
