@@ -218,21 +218,43 @@ class Graph:
 
         :param edges: A dictionary of key-list pairs where each key corresponds to (from_node, to_node, [optional] weighting)
         """
-        graph_edges = []
-        from_nodes = edges["from_node"]
-        to_nodes = edges["to_node"]
-        weightings = None
+        graph_edges: list[tuple[int, int, GraphEdge]] = []
+        from_nodes: list[int] = edges["from_node"]
+        to_nodes: list[int] = edges["to_node"]
+        weightings: list[float] | None = None
         if "weighting" in edges.keys():
             weightings = edges["weighting"]
 
+        # Used in case that explicit hierarchy names are set per edge (in the case of the mixed-hierarchy base graph in the model for example)
+        names: list[str] | None = None
+        if "names" in edges.keys():
+            names = edges["names"]
+
+        # Declare the data type of 'edge'
+        edge: GraphEdge
+
         if weightings:
-            for i in range(len(from_nodes)):
-                edge = GraphEdge(self.name, from_nodes[i], to_nodes[i], weightings[i])
-                graph_edges.append((from_nodes[i], to_nodes[i], edge))
+            if names:
+                for i in range(len(from_nodes)):
+                    edge = GraphEdge(
+                        names[i], from_nodes[i], to_nodes[i], weightings[i]
+                    )
+                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
+            else:
+                for i in range(len(from_nodes)):
+                    edge = GraphEdge(
+                        self.name, from_nodes[i], to_nodes[i], weightings[i]
+                    )
+                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
         else:
-            for i in range(len(from_nodes)):
-                edge = GraphEdge(self.name, from_nodes[i], to_nodes[i])
-                graph_edges.append((from_nodes[i], to_nodes[i], edge))
+            if names:
+                for i in range(len(from_nodes)):
+                    edge = GraphEdge(names[i], from_nodes[i], to_nodes[i])
+                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
+            else:
+                for i in range(len(from_nodes)):
+                    edge = GraphEdge(self.name, from_nodes[i], to_nodes[i])
+                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
 
         self.graph.add_edges_from(graph_edges)
         self.update_edge_indices()
@@ -689,7 +711,7 @@ class GraphSet:
                 return idx
 
         raise KeyError(
-            f"The social hierarchy '{hierarchy}' does not exist in the GraphSet -- cannot an index."
+            f"The social hierarchy '{hierarchy}' does not exist in the GraphSet -- cannot return an index."
         )
 
     def list_hierarchies(self, print_out: bool = False) -> list[str]:

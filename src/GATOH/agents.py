@@ -9,7 +9,7 @@ from typing import Any, Iterator, override
 import numpy as np
 import polars as pl
 
-from .utils import draw_random_value, value_rw_delta, random_coinflip
+from .utils import draw_random_value, random_coinflip, value_rw_delta
 
 
 class Agent:
@@ -266,7 +266,12 @@ class Agent:
 
         return negation_strength > threshold
 
-    def radicalisation(self, hierarchy_changes: Iterable[float], hierarchies: Iterable[str], threshold: float) -> bool:
+    def radicalisation(
+        self,
+        hierarchy_changes: Iterable[float],
+        hierarchies: Iterable[str],
+        threshold: float,
+    ) -> bool:
         """
         Uses the agent's own opinion as well as the neighbours' opinions to determine if
         the agent has become radicalised in their actions.
@@ -304,7 +309,9 @@ class Agent:
                 pass
             case "impulsive":
                 # The agent places very strong consideration on tangible benefits over anything else
-                if absolute_opinion >= threshold / 2:  # (threshold / 2) as the Agent behaves impulsively and less is required for them to consider becoming radicalised
+                if (
+                    absolute_opinion >= threshold / 2
+                ):  # (threshold / 2) as the Agent behaves impulsively and less is required for them to consider becoming radicalised
                     self.radicalised = self.personal_benefit
                     return self.radicalised
             case "social":
@@ -453,6 +460,51 @@ class AgentSet:
                 self.update_indices()
                 return True
         return False
+
+    def agent_at_index(self, index: int) -> Agent | None:
+        """
+        Returns the Agent object at the given index in the AgentSet.
+
+        :param index: The index within the AgentSet to inspect.
+        :return: The Agent object at the specified index.
+        """
+        try:
+            return self.agents[index]
+        except IndexError:
+            print(
+                f"Index {index} is out of bounds for the AgentSet. Only {len(self.agents)} Agents have been created."
+            )
+            return None
+
+    def get_agent_by_id(self, id: str) -> Agent | None:
+        """
+        Searches the AgentSet for an Agent with the given id and returns its object if it exists.
+
+        :param id: The id that was assigned to the Agent object at creation.
+        :return: The Agent object with the specified id.
+        """
+        for agent in self.agents:
+            if agent.id == id:
+                return agent
+
+        raise KeyError(
+            f"The Agent with id '{id}' does not exist in the AgentSet -- unable to return an Agent object."
+        )
+
+    def get_index(self, agent: Agent) -> int:
+        """
+        Returns the index within the AgentSet of the input Agent object.
+
+        :param agent: The Agent object whose index is being searched for.
+        :return: The index of the Agent object within the AgentSet.
+        """
+        for idx, agt in enumerate(self.agents):
+            if agent == agt:
+                return idx
+
+        raise KeyError(
+            f"The Agent {agent.id} does not exist in the AgentSet -- unable to return an index."
+        )
 
     def discard_index(self, index: int) -> bool:
         """

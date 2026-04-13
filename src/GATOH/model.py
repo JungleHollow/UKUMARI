@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 
 from .agents import Agent, AgentSet
-from .graphs import Graph, GraphSet
+from .graphs import Graph, GraphEdge, GraphSet
 from .logging import GATOHLogger
 from .visualisation import ABVisualiser
 
@@ -38,6 +38,10 @@ class ABModel:
         self.graphs: GraphSet = GraphSet(self)
         self.agents: AgentSet = AgentSet(self)
 
+        # A model-handled 'base' Graph that keeps track of all relationships across the social hierarchies
+        # (Used to greatly simplify network-level graph calculations)
+        self.base_graph: Graph = Graph("base", (0.0, 0.0))
+
         self.logger: GATOHLogger = GATOHLogger(self, iterations, hierarchy_names)
         self.visualiser: ABVisualiser = ABVisualiser(self)
         self.current_iteration: int = 0
@@ -54,6 +58,9 @@ class ABModel:
         :param graph: The Graph object to be added to the Model's GraphSet.
         """
         self.graphs.add_graph(graph)
+
+        # Also add new edges to the model's base graph
+        self.add_base_graph_edges(graph)
 
     def add_graphs(
         self, graphs: list[Any], names: list[str], rw_params: list[tuple[float, float]]
@@ -119,6 +126,8 @@ class ABModel:
         :param agent: The Agent object to add to the AgentSet.
         :return: The index of the newly added Agent in the AgentSet.
         """
+        # Add the Agent object to the model-handled 'base' graph
+        self.base_graph.add_nodes([agent])
         return self.agents.add(agent)
 
     def add_agents(self, agents: list[Agent]) -> None:
@@ -129,6 +138,9 @@ class ABModel:
         """
         for agent in agents:
             self.agents.add(agent)
+
+        # Add all the new Agent objects to the model-handled 'base' graph
+        self.base_graph.add_nodes(agents)
 
     def generate_agents(
         self,
@@ -371,8 +383,46 @@ class ABModel:
         :param layer: The index of the layer of interest.
         :return: The layer interdependence measure for the layer of interest.
         """
+        # Update the base graph's edge weights before performing any calculations
+        self.update_base_graph()
+
         # TODO: Implement this function
         raise NotImplementedError(
             "Layer interdependence calculation is not yet implemented..."
         )
         return 0.0
+
+    def add_base_graph_edges(self, graph: Graph) -> None:
+        """
+        A function that takes a Graph object and adds all of its weighted edges to the model's base graph.
+
+        :param graph: The new Graph object that is being added to self.graphs.
+        """
+        new_edges: dict = {"names": [], "from_node": [], "to_node": [], "weighting": []}
+
+        for idx, edge in graph.graph.edge_index_map().items():
+            from_node_idx: int = edge[0]
+            to_node_idx: int = edge[1]
+            weighting: float = edge[2]
+
+            # Actually GraphNode objects, but must be declared as "Any" for cases where a non-existend node index is passed to the function...
+            from_node: Any = graph.get_node(from_node_idx)
+            to_node: Any = graph.get_node(to_node_idx)
+
+            base_from_idx: int = self.agents.get_index(from_node)
+            base_to_idx: int = self.agents.get_index(to_node)
+
+            new_edges["names"].append(graph.name)
+            new_edges["from_node"].append(base_from_idx)
+            new_edges["to_node"].append(base_to_idx)
+            new_edges["weighting"].append(weighting)
+
+        self.base_graph.add_edges(new_edges)
+
+    def update_base_graph(self) -> None:
+        """
+        Iterates over all relationships in the base graph and checks the respective relationship within the relevant hierarchy,
+        updating the relationship weight if needed.
+        """
+        # TODO: Implement this function
+        pass
