@@ -401,21 +401,19 @@ class ABModel:
         new_edges: dict = {"names": [], "from_node": [], "to_node": [], "weighting": []}
 
         for idx, edge in graph.graph.edge_index_map().items():
-            from_node_idx: int = edge[0]
-            to_node_idx: int = edge[1]
-            weighting: float = edge[2]
+            graph_edge: GraphEdge = edge[2]
 
             # Actually GraphNode objects, but must be declared as "Any" for cases where a non-existend node index is passed to the function...
-            from_node: Any = graph.get_node(from_node_idx)
-            to_node: Any = graph.get_node(to_node_idx)
+            from_node: Any = graph.get_node(graph_edge.from_node)
+            to_node: Any = graph.get_node(graph_edge.to_node)
 
             base_from_idx: int = self.agents.get_index(from_node)
             base_to_idx: int = self.agents.get_index(to_node)
 
-            new_edges["names"].append(graph.name)
+            new_edges["names"].append(graph_edge.hierarchy)
             new_edges["from_node"].append(base_from_idx)
             new_edges["to_node"].append(base_to_idx)
-            new_edges["weighting"].append(weighting)
+            new_edges["weighting"].append(graph_edge.weighting)
 
         self.base_graph.add_edges(new_edges)
 
