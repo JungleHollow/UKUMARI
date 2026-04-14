@@ -4,6 +4,7 @@ from random import choices, randint
 from typing import Any
 
 import numpy as np
+from rustworkx.rustworkx import NoEdgeBetweenNodes
 
 from .agents import Agent, AgentSet
 from .graphs import Graph, GraphEdge, GraphSet
@@ -371,26 +372,79 @@ class ABModel:
         Calculate the layer interdependence; a measure of how much impact a specific layer has in the overall
         social network.
 
-        The formula for layer interdependence is defined as:
+        The general formula for layer interdependence is defined as:
 
         .. math::
 
-            \lambda^{a} = \frac{\sum_{i}\sum_{i \neq j}\Psi^{a}_{ij}}{\sum_{i}\sum_{i \neq j}\Psi_{ij}}
+            \lambda^{a} = \frac{\sum_{i}\sum_{j \neq j\i}\Psi^{a}_{ij}}{\sum_{i}\sum_{j \neq i}\Psi_{ij}}
 
         where :math:`\Psi^{a}_{ij}` describes the number of shortest paths between nodes :math:`i` and :math:`j`
         using two or more layers, where at least one of the layers passed through is :math:`a`.
 
+        For the case of multilayer social contagion modeling, it has been defined here as:
+
+        .. math::
+
+            \lambda^{a} = \frac{\sum_{i}\sum_{j \neq i}OC'_{i}(j)^{a}}{\sum_{i}\sum_{j \neq i}OC'_{i}(j)}
+
+        where :math:`OC'_{i}(j)^{a}` is Agent :math:`j`'s opinion climate value as perceived by Agent :math:`i`
+        in the social hierarchy layer :math:`a`.
+
         :param layer: The index of the layer of interest.
         :return: The layer interdependence measure for the layer of interest.
         """
-        # Update the base graph's edge weights before performing any calculations
+        # Update the base graph's edge weights before performing any calculations (possibility for future features requiring this)
         self.update_base_graph()
 
-        # TODO: Implement this function
-        raise NotImplementedError(
-            "Layer interdependence calculation is not yet implemented..."
-        )
-        return 0.0
+        layer_of_interest: str = self.graphs.graphs[layer].name
+        observed_opinions_all: dict[str, dict[str, dict[str, float]]] = {}
+
+        for hierarchy in self.graphs:
+            observed_opinions_layer: dict[str, dict] = {}
+            for agent_i in hierarchy.graph.nodes():
+                agent_i_oc: dict[str, float] = hierarchy.estimate_neighbour_opinions(
+                    agent_i
+                )
+                observed_opinions_layer[agent_i.agent.id] = agent_i_oc
+            observed_opinions_all[hierarchy.name] = observed_opinions_layer
+
+        interdep_numerator: float = 0.0
+        # Get the sum of all the estimated opinion values, only for the layer of interest (a)
+        oc_a: dict[str, dict] = observed_opinions_all[layer_of_interest]
+        for agent_a_i, oc_a_i in oc_a.items():
+            interdep_numerator += sum(oc_a_i.values())
+
+        interdep_denominator: float = 0.0
+        # Get the sum of all the estimated opinion values for all layers (k)
+        for layer_k, oc_k in observed_opinions_all.items():
+            for agent_k_i, oc_k_i in oc_k.items():
+                interdep_denominator += sum(oc_k_i.values())
+
+        # Calculate the interdependence value for the layer
+        layer_interdependence: float = interdep_numerator / interdep_denominator
+
+        return layer_interdependence
+
+    def get_base_indices_from_edge(
+        self, hierarchy_graph: Graph, edge: GraphEdge
+    ) -> tuple[int, int]:
+        """
+        A helper function for the base graph that takes in a GraphEdge object from a hierarchy graph and transforms
+        the node indices from hierarchy graph indices to the respective index of the Agent objects in the model's
+        AgentSet.
+
+        :param hierarchy_graph: The corresponding hierarchy Graph object that the GraphEdge belongs in.
+        :param edge: A GraphEdge object from one of the model's hierarchy graphs in the GraphSet.
+        :return: The index in the AgentSet of the parent and child nodes involved in the hierarchy graph's relationship.
+        """
+        # Actually GraphNode objects, but must be declared as "Any" for cases where a non-existent node index is passed to the function...
+        from_node: Any = hierarchy_graph.get_node(edge.from_node)
+        to_node: Any = hierarchy_graph.get_node(edge.to_node)
+
+        from_index_base: int = self.agents.get_index(from_node.agent)
+        to_index_base: int = self.agents.get_index(to_node.agent)
+
+        return from_index_base, to_index_base
 
     def add_base_graph_edges(self, graph: Graph) -> None:
         """
@@ -398,19 +452,17 @@ class ABModel:
 
         :param graph: The new Graph object that is being added to self.graphs.
         """
-        new_edges: dict = {"names": [], "from_node": [], "to_node": [], "weighting": []}
+        new_edges: dict = {"from_node": [], "to_node": [], "weighting": [], "name": []}
 
         for idx, edge in graph.graph.edge_index_map().items():
             graph_edge: GraphEdge = edge[2]
 
-            # Actually GraphNode objects, but must be declared as "Any" for cases where a non-existend node index is passed to the function...
-            from_node: Any = graph.get_node(graph_edge.from_node)
-            to_node: Any = graph.get_node(graph_edge.to_node)
+            # Get the index of the Agent objects within the model's AgentSet (not the graph's node set)
+            base_from_idx, base_to_idx = self.get_base_indices_from_edge(
+                graph, graph_edge
+            )
 
-            base_from_idx: int = self.agents.get_index(from_node)
-            base_to_idx: int = self.agents.get_index(to_node)
-
-            new_edges["names"].append(graph_edge.hierarchy)
+            new_edges["name"].append(graph_edge.hierarchy)
             new_edges["from_node"].append(base_from_idx)
             new_edges["to_node"].append(base_to_idx)
             new_edges["weighting"].append(graph_edge.weighting)
@@ -422,5 +474,30 @@ class ABModel:
         Iterates over all relationships in the base graph and checks the respective relationship within the relevant hierarchy,
         updating the relationship weight if needed.
         """
-        # TODO: Implement this function
-        pass
+        for hierarchy in self.graphs:
+            for idx, edge in hierarchy.graph.edge_index_map().items():
+                graph_edge: GraphEdge = edge[2]
+
+                # Get the index of the Agent objects within the model's AgentSet (not the graph's node set)
+                base_from_idx, base_to_idx = self.get_base_indices_from_edge(
+                    hierarchy, graph_edge
+                )
+
+                # Update the weigting in base graph if an edge exists and the weighting is different from the hierarchy's
+                try:
+                    base_edge: GraphEdge = self.base_graph.graph.get_edge_data(
+                        base_from_idx, base_to_idx
+                    )
+                    if graph_edge.weighting != base_edge.weighting:
+                        self.base_graph.change_weights(
+                            base_from_idx, base_to_idx, graph_edge.weighting
+                        )
+                # If the edge does not exist in the base graph, create it and add it to the base graph
+                except NoEdgeBetweenNodes:
+                    new_edge: dict = {
+                        "from_node": [base_from_idx],
+                        "to_node": [base_to_idx],
+                        "weighting": [graph_edge.weighting],
+                        "name": [hierarchy.name],
+                    }
+                    self.base_graph.add_edges(new_edge)

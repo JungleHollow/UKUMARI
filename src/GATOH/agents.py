@@ -499,7 +499,7 @@ class AgentSet:
         :return: The index of the Agent object within the AgentSet.
         """
         for idx, agt in enumerate(self.agents):
-            if agent == agt:
+            if agent.id == agt.id:
                 return idx
 
         raise KeyError(

@@ -208,15 +208,21 @@ class Graph:
         Iterates over all the existing edges in the graph and updates their stored indices to reflect the current graph state.
         Will also update the graph edge_count attribute
         """
-        for index, data in self.graph.edge_index_map().items():
-            data[2].index = index
+        for idx, data in self.graph.edge_index_map().items():
+            graph_edge: GraphEdge = data[2]
+            if (
+                type(graph_edge) is list
+            ):  # Workaround for unknown error where a list of a single GraphEdge is added to the base graph at some point
+                graph_edge = graph_edge[0]
+            graph_edge.index = idx
+            self.graph.update_edge_by_index(idx, graph_edge)
         self.edge_count = len(self.graph.edges())
 
     def add_edges(self, edges: dict) -> None:
         """
         Creates appropriate GraphEdges from the given dictionary and then adds these to the graph.
 
-        :param edges: A dictionary of key-list pairs where each key corresponds to (from_node, to_node, [optional] weighting)
+        :param edges: A dictionary of key-list pairs where each key corresponds to (from_node, to_node, [optional] weighting, [optional] name)
         """
         graph_edges: list[tuple[int, int, GraphEdge]] = []
         from_nodes: list[int] = edges["from_node"]
@@ -227,8 +233,8 @@ class Graph:
 
         # Used in case that explicit hierarchy names are set per edge (in the case of the mixed-hierarchy base graph in the model for example)
         names: list[str] | None = None
-        if "names" in edges.keys():
-            names = edges["names"]
+        if "name" in edges.keys():
+            names = edges["name"]
 
         # Declare the data type of 'edge'
         edge: GraphEdge
@@ -352,6 +358,10 @@ class Graph:
             self.graph.update_edge_by_index(
                 index, graph_edge
             )  # Update the edge with a GraphEdge object
+
+        # Update the node and edge counts manually as no call to update_x_indices() have been made
+        self.node_count = len(self.graph.nodes())
+        self.edge_count = len(self.graph.edges())
 
     def relationship_exists(self, from_node: int, to_node: int) -> int | None:
         """
@@ -551,6 +561,33 @@ class Graph:
                 continue
             else:
                 edge.weighting += rw_value
+
+    def estimate_neighbour_opinions(self, agent: Agent) -> dict[str, float]:
+        """
+        Return the individual opinion climate values perceived by the Agent for each other Agent within this social hierarchy.
+
+        :param agent: The Agent object which is estimating its neighbours' opinions.
+        :return: A list of the Agent's perceived opinion values held by each of its hierarchy neighbours.
+        """
+        observed_opinions: dict[str, float] = {}
+
+        direct_neighbours: list[GraphNode] = self.get_neighbours(agent)
+        for direct_neighbour in direct_neighbours:
+            observed_opinion: float = direct_neighbour.agent.opinion
+            observed_opinions[direct_neighbour.agent.id] = observed_opinion
+
+        for node in self.graph.nodes():
+            if node.agent == agent or node in direct_neighbours:
+                # Only look at indirect neighbours
+                continue
+
+            raw_observed_opinion: float = node.agent.opinion
+            attenuated_opinion: float = beta_value_attenuation(raw_observed_opinion)
+
+            if -0.5 > attenuated_opinion > 0.5:
+                observed_opinions[node.agent.id] = raw_observed_opinion
+
+        return observed_opinions
 
     def estimate_opinion_climate(self, agent: Agent) -> float:
         """
