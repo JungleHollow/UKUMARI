@@ -223,9 +223,7 @@ class ABModel:
             self.update()
 
             self.logger_iteration()  # Handle the logger's iteration() calculations and call its method
-            self.logger.iteration_print(
-                self.current_iteration
-            )  # Does nothing if not at the print interval
+            self.logger.iteration_print()  # Does nothing if not at the print interval
             self.current_iteration += 1
 
     def step(self) -> None:

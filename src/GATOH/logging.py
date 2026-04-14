@@ -83,6 +83,42 @@ class LoggerVariables:
         if flag:
             self.negated_agents[self.current_iteration - 1] += 1
 
+    def store_aggregate_opinion(self, agg_opp: float) -> None:
+        """
+        A setter function that simplifies the storing of aggregate opinion values at each iteration.
+
+        :param agg_opp: The aggregate opinion value to store for the current iteration.
+        """
+        self.aggregate_opinions[self.current_iteration] = agg_opp
+
+    def store_radicalisation_logodds(self, r_logodds: float) -> None:
+        """
+        A setter function that simplifies the storing of the model's radicalisation log odds at each iteration.
+
+        :param r_logodds: The model's radicalisation log odds value to store for the current iteration.
+        """
+        self.radicalisation_logodds[self.current_iteration] = r_logodds
+
+    def store_layer_interdepences(self, layer_interdeps: dict[str, float]) -> None:
+        """
+        A setter function that simplifies the storing of the model's layer interdependences at each iteration.
+
+        :param layer_interdeps: A <hierarchy : interdependence value> dictionary that tracks the layer interdependences to be stored for this iteration.
+        """
+        for hierarchy, interdependence in layer_interdeps.items():
+            self.layer_interdependences[hierarchy][self.current_iteration] = (
+                interdependence
+            )
+
+    def store_layer_polarisations(self, layer_polars: dict[str, float]) -> None:
+        """
+        A setter function that simplifies the storing of the model's layer polarisations at each iteration.
+
+        :param layer_polars: A <hierarchy : polarisation value> dictionary that tracks the layer polarisations to be stored for this iteration.
+        """
+        for hierarchy, polarisation in layer_polars.items():
+            self.layers_polarisation[hierarchy][self.current_iteration] = polarisation
+
     def new_iteration(self, init: bool = False) -> None:
         """
         Increment the current_iteration counter and then copy all the values from the previous iteration to their respective list indexes for the new iteration.
@@ -156,21 +192,35 @@ class GATOHLogger:
         hierarchies: list[str],
         verbose: bool = False,
         print_interval: int = 10,
+        print_outside_interval: bool = True,
         write_file: bool = True,
     ) -> None:
         """
         :param model: The parent ABModel object that the GATOHLogger object is being attached to.
         :param max_iterations: The maximum number of iterations that the parent model is running its simulation for.
         :param hierarchies: A list containing the names of the social hierarchies present in the parent model.
-        :param verbose: a flag to indicate if extended information should be printed during logging.
-        :param print_interval: the number of model iterations to run in between each printed logging output.
-        :param write_file: a flag to indicate if a log file should be written to disk at the end of logging.
+        :param verbose: A flag to indicate if extended information should be printed during logging.
+        :param print_interval: The number of model iterations to run in between each printed logging output.
+        :param print_outside_interval: A boolean flag indicating if a simple string indicating just the iteration number should be printed outside the print_interval.
+        :param write_file: A flag to indicate if a log file should be written to disk at the end of logging.
         """
         self.parent_model: Any = model
         self.verbose: bool = verbose
         self.print_interval: int = print_interval
+        self.print_outside_interval: bool = print_outside_interval
         self.write_file: bool = write_file
         self.variables: LoggerVariables = LoggerVariables(max_iterations, hierarchies)
+
+    def format_non_interval_print(self) -> str:
+        """
+        Returns a formatted string to be printed out on iterations which fall outside the print interval (to still provide some feedback on iteration progress)
+
+        Defined as its own function to allow for easy modification in the future.
+
+        :return: The formatted string to print outside of the print interval.
+        """
+        non_interval_string: str = f"\n\n========== Iteration {self.variables.current_iteration}/{self.variables.max_iterations} ==========\n\n"
+        return non_interval_string
 
     def new_iteration(self, init: bool = False) -> None:
         """
@@ -195,18 +245,21 @@ class GATOHLogger:
         :param layer_interdependences: A <hierarchy : value> dictionary containing the calculated layer interdependency for each hierarchy in the model at the end of this iteration.
         :param layers_polarisation: A <hierarchy : value> dictionary containing the calculated polarisation for each hierarchy in the model at the end of this iteration.
         """
-        # TODO: Implement this function
-        pass
+        self.variables.store_aggregate_opinion(aggregate_opinion)
+        self.variables.store_radicalisation_logodds(radicalisation_logodds)
+        self.variables.store_layer_interdepences(layer_interdependences)
+        self.variables.store_layer_polarisations(layers_polarisation)
 
-    def iteration_print(self, current_iteration: int) -> None:
+    def iteration_print(self) -> None:
         """
         A method which prints out informative model statistics at the appropriate print_interval.
 
         :param current_iteration: The current iteration that the model is at when calling this method.
         """
-        if current_iteration % self.print_interval != 0:
-            return None
+        print_string: str
+        if self.variables.current_iteration % self.print_interval != 0:
+            print_string = self.variables.current_layers_repr()
+            print(print_string)
         else:
-            # TODO: Finish this print block
-            pass
-        return None
+            print_string = self.format_non_interval_print()
+            print(print_string)

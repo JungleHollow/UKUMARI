@@ -44,7 +44,3 @@ if __name__ == "__main__":
 
     for agent in model.agents.agents:
         print(agent.opinion)
-
-    model.iterate()
-    for agent in model.agents.agents:
-        print(agent.opinion)
