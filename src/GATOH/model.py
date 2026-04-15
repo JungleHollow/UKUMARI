@@ -116,8 +116,12 @@ class ABModel:
             hierarchy_rw_param: tuple[float, float] = (0.0, 0.1)
             if rw_params:
                 hierarchy_rw_param = rw_params[idx]
+
             hierarchy_graph: Graph = Graph(hierarchy, hierarchy_rw_param)
-            hierarchy_graph.generate_graph(agent_sample, method=method)
+            hierarchy_graph = hierarchy_graph.generate_graph(
+                agent_sample, method=method
+            )
+
             self.add_graph(hierarchy_graph)
 
     def add_agent(self, agent: Agent) -> int:
@@ -197,6 +201,10 @@ class ABModel:
             # First each agent looks at its neighbours to see how their opinion will evolve this iterations
             for agent in self.agents:
                 agent.previous_opinion = agent.opinion
+                for hierarchy in self.graphs:
+                    # Update the previous opinion across all hierarchies
+                    hierarchy.agent_previous_opinion(agent)
+
                 collective_changes: list[float] = []
                 for hierarchy in self.graphs:
                     collective_changes.append(hierarchy.neighbour_influences(agent))
@@ -209,6 +217,9 @@ class ABModel:
                     continue
                 else:
                     agent.opinion += total_change
+                    for hierarchy in self.graphs:
+                        # Update the current opinion across all hierarchies
+                        hierarchy.agent_opinion_change(agent, total_change)
 
                 # After the opinion change, determine if the agent has become radicalised
                 was_radicalised: bool = agent.radicalisation(
@@ -216,6 +227,10 @@ class ABModel:
                     list(self.hierarchy_information.keys()),
                     self.radicalisation_threshold,
                 )
+
+                for hierarchy in self.graphs:
+                    # Update the radicalisation status of the agent across all hierarchies
+                    hierarchy.agent_radicalisation_change(agent, was_radicalised)
 
                 # Update the radicalisation count in the logger as needed
                 self.logger.variables.increment_radicalised(was_radicalised)
@@ -424,7 +439,6 @@ class ABModel:
 
         # Calculate the interdependence value for the layer
         layer_interdependence: float = interdep_numerator / interdep_denominator
-
         return layer_interdependence
 
     def get_base_indices_from_edge(

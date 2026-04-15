@@ -281,9 +281,9 @@ class Agent:
         :param threshold: The radicalisation threshold that has been defined at the global level in the model.
         :return: A boolean indicating if the Agent has become radicalised or not.
         """
-        # If the Agent is already radicalised, always return True
+        # If the Agent is already radicalised, always return False (as the Agent cannot become 'radicalised' again)
         if self.radicalised:
-            return True
+            return False
 
         # Absolute opinion declared here to reduce calls to abs() in the match statement
         absolute_opinion: float = abs(self.opinion)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import warnings
 from collections.abc import Iterable
+from copy import deepcopy
 from random import Random
 from typing import Any, Iterator, override
 
@@ -195,7 +196,7 @@ class Graph:
 
         :param agents: The Agent objects that will be converted to GraphNodes and added to the graph
         """
-        nodes = []
+        nodes: list[GraphNode] = []
         for agent in agents:
             agent_node = GraphNode(agent)
             nodes.append(agent_node)
@@ -209,7 +210,7 @@ class Graph:
         Will also update the graph edge_count attribute
         """
         for idx, data in self.graph.edge_index_map().items():
-            graph_edge: GraphEdge = data[2]
+            graph_edge: GraphEdge = deepcopy(data[2])
             if (
                 type(graph_edge) is list
             ):  # Workaround for unknown error where a list of a single GraphEdge is added to the base graph at some point
@@ -245,27 +246,27 @@ class Graph:
                     edge = GraphEdge(
                         names[i], from_nodes[i], to_nodes[i], weightings[i]
                     )
-                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
+                    graph_edges.append((from_nodes[i], to_nodes[i], deepcopy(edge)))
             else:
                 for i in range(len(from_nodes)):
                     edge = GraphEdge(
                         self.name, from_nodes[i], to_nodes[i], weightings[i]
                     )
-                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
+                    graph_edges.append((from_nodes[i], to_nodes[i], deepcopy(edge)))
         else:
             if names:
                 for i in range(len(from_nodes)):
                     edge = GraphEdge(names[i], from_nodes[i], to_nodes[i])
-                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
+                    graph_edges.append((from_nodes[i], to_nodes[i], deepcopy(edge)))
             else:
                 for i in range(len(from_nodes)):
                     edge = GraphEdge(self.name, from_nodes[i], to_nodes[i])
-                    graph_edges.append((from_nodes[i], to_nodes[i], edge))
+                    graph_edges.append((from_nodes[i], to_nodes[i], deepcopy(edge)))
 
         self.graph.add_edges_from(graph_edges)
         self.update_edge_indices()
 
-    def generate_graph(self, agents: list[Agent], method: str = "small-world") -> None:
+    def generate_graph(self, agents: list[Agent], method: str = "small-world") -> Any:
         """
         Randomly generate edges between existing Graph nodes and add them to the graph.
 
@@ -335,16 +336,16 @@ class Graph:
                 )
 
         graph_nodes: list[GraphNode] = []
-        for node in generated_graph.nodes():
-            graph_node: GraphNode = GraphNode(agents[node])
-            graph_node.index = node
+        for index, node in enumerate(generated_graph.nodes()):
+            graph_node: GraphNode = GraphNode(agents[index])
+            graph_node.index = index
             graph_nodes.append(graph_node)
         for idx, graph_node in enumerate(graph_nodes):
             generated_graph[idx] = (
                 graph_node  # Update all the graph nodes with the new GraphNode data objects
             )
 
-        self.graph = generated_graph  # Store the generated graph as the object's "graph" attribute (with 0.0 weights currently)
+        self.graph = generated_graph  # Store the generated graph as the object's "graph" attribute (with 0.0 relationship weights currently)
 
         for index, edge in generated_graph.edge_index_map().items():
             generated_value = random_gen.uniform(
@@ -356,12 +357,14 @@ class Graph:
             )
 
             self.graph.update_edge_by_index(
-                index, graph_edge
+                index, deepcopy(graph_edge)
             )  # Update the edge with a GraphEdge object
 
         # Update the node and edge counts manually as no call to update_x_indices() have been made
         self.node_count = len(self.graph.nodes())
         self.edge_count = len(self.graph.edges())
+
+        return self
 
     def relationship_exists(self, from_node: int, to_node: int) -> int | None:
         """
@@ -480,6 +483,50 @@ class Graph:
                 return True
         return False
 
+    def agent_previous_opinion(self, agent: Agent) -> None:
+        """
+        Set the specified Agent's previous opinion to be equal to the current opinion (before the current opinion changes in the current iteration).
+
+        :param agent: The Agent whose previous opinion is being set.
+        """
+        agent_node: Any = self.node_from_agent(agent)
+        agent_node.agent.previous_opinion = deepcopy(agent_node.agent.opinion)
+
+    def agent_opinion_change(self, agent: Agent, change_delta: float) -> None:
+        """
+        Changes the specified Agent's current opinion by the given delta.
+
+        :param agent: The Agent whose current opinion is being changed.
+        :param change_delta: The value by which to change the Agent's current opinion.
+        """
+        agent_node: Any = self.node_from_agent(agent)
+        agent_node.agent.opinion += change_delta
+        if agent_node.agent.opinion < -1.0:
+            agent_node.agent.opinion = -1.0
+        elif agent_node.agent.opinion > 1.0:
+            agent_node.agent.opinion = 1.0
+
+    def agent_radicalisation_change(self, agent: Agent, radicalisation: bool) -> None:
+        """
+        Change the specified Agent's radicalisation status.
+
+        :param agent: The Agent whose radicalisation status is being changed.
+        :param radicalisation: The boolean radicalisation status.
+        """
+        agent_node: Any = self.node_from_agent(agent)
+        agent_node.agent.radicalisation = radicalisation
+
+    def node_from_agent(self, agent: Agent) -> Any:
+        """
+        Returns the GraphNode object corresponding to the given Agent object.
+
+        :param agent: The Agent object being searched for in the GraphNodes.
+        :return: The GraphNode object corresponding to the input Agent.
+        """
+        agent_index: int = self.get_agent_index(agent)
+        agent_node: Any = self.get_node(agent_index)
+        return agent_node
+
     def get_agent_index(self, agent: Agent) -> int:
         """
         Searches for the node index in the Graph which corresponds to the input Agent object.
@@ -573,7 +620,7 @@ class Graph:
 
         direct_neighbours: list[GraphNode] = self.get_neighbours(agent)
         for direct_neighbour in direct_neighbours:
-            observed_opinion: float = direct_neighbour.agent.opinion
+            observed_opinion: float = deepcopy(direct_neighbour.agent.opinion)
             observed_opinions[direct_neighbour.agent.id] = observed_opinion
 
         for node in self.graph.nodes():
@@ -581,7 +628,7 @@ class Graph:
                 # Only look at indirect neighbours
                 continue
 
-            raw_observed_opinion: float = node.agent.opinion
+            raw_observed_opinion: float = deepcopy(node.agent.opinion)
             attenuated_opinion: float = beta_value_attenuation(raw_observed_opinion)
 
             if -0.5 > attenuated_opinion > 0.5:
@@ -602,7 +649,7 @@ class Graph:
 
         direct_neighbours: list[GraphNode] = self.get_neighbours(agent)
         for direct_neighbour in direct_neighbours:
-            observed_opinion: float = direct_neighbour.agent.opinion
+            observed_opinion: float = deepcopy(direct_neighbour.agent.opinion)
             observed_opinions.append(observed_opinion)
 
         for node in self.graph.nodes():
@@ -610,7 +657,7 @@ class Graph:
                 # Only look at indirect neighbours
                 continue
 
-            raw_observed_opinion: float = node.agent.opinion
+            raw_observed_opinion: float = deepcopy(node.agent.opinion)
             attenuated_opinion: float = beta_value_attenuation(raw_observed_opinion)
 
             if (
@@ -660,7 +707,7 @@ class Graph:
             square_distance: float = (distance - y) ** 2
             summation += square_distance
 
-        radicalisation_measure: float = (1 / (K * (K - 1))) * summation
+        radicalisation_measure: float = summation / (K * (K - 1))
         return radicalisation_measure
 
     def __in__(self, iterable: Iterable[Graph]) -> bool:

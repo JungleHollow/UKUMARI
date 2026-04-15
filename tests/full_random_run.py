@@ -9,8 +9,8 @@ import src.GATOH.agents as agt
 import src.GATOH.graphs as gr
 import src.GATOH.model as md
 
-rd.seed(1312)
-N_INDIVIDUALS: int = 100
+# rd.seed(1312)
+N_INDIVIDUALS: int = 80
 AGENT_ID_BASE: str = "TEST"  # Define the Id base for the test case
 
 HIERARCHY_NAMES: list[str] = [
@@ -35,12 +35,9 @@ AGENT_PERSONALITIES: dict[str, float] = {
 }
 
 if __name__ == "__main__":
-    model = md.ABModel(HIERARCHY_NAMES, HIERARCHY_RW_DISTRIB, 100)
+    model = md.ABModel(HIERARCHY_NAMES, HIERARCHY_RW_DISTRIB, 20)
     model.generate_agents(AGENT_ID_BASE, AGENT_PERSONALITIES, number=N_INDIVIDUALS)
     model.generate_graphs(
         HIERARCHY_NAMES, model.agents, agent_subsetting=True
     )  # Set agent_subsetting to True to have significant differences between hierarchies in this test
     model.iterate()
-
-    for agent in model.agents.agents:
-        print(agent.opinion)

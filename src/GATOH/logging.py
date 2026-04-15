@@ -129,7 +129,7 @@ class LoggerVariables:
         """
         self.current_iteration += 1
 
-        if init:
+        if init or self.current_iteration <= 1:
             return None
 
         # Variables defined to reduce repetition below
@@ -149,7 +149,7 @@ class LoggerVariables:
         :return: A formatted substring containing all the per-hierarchy variables for the current model iteration.
         """
         output_string: str = (
-            "\tHierarchy Name\tLayer Interdependence\tLayer Polarisation\n"
+            "Hierarchy Name\tLayer Interdependence\tLayer Polarisation\n"
         )
         for hierarchy in self.layer_interdependences.keys():
             interdepence: float = self.layer_interdependences[hierarchy][
@@ -158,7 +158,7 @@ class LoggerVariables:
             polarisation: float = self.layers_polarisation[hierarchy][
                 self.current_iteration - 1
             ]
-            hierarchy_string: str = f"\t{hierarchy}\t{interdepence}\t{polarisation}\n"
+            hierarchy_string: str = f"{hierarchy}\t{interdepence}\t{polarisation}\n"
             output_string += hierarchy_string
         return output_string
 
@@ -168,14 +168,10 @@ class LoggerVariables:
 
         :return: A formatted string containing all the variables for the current model iteration.
         """
-        formatted_string: str = f"""\n\n==== GATOH model variables at iteration {self.current_iteration}/{self.max_iterations} ====\n\n
-            Aggregate community opinion: {self.aggregate_opinions[self.current_iteration]}\n
-            Number of radicalised agents in the community: {self.radicalised_agents[self.current_iteration]}\n
-            Log odds of radicalisation ocurring: {self.radicalisation_logodds[self.current_iteration]}\n
-            Number of opinion silencing events: {self.silenced_agents[self.current_iteration]}\n
-            Number of opinion negation events: {self.negated_agents[self.current_iteration]}\n\n
-            **** Layer statistics ****\n\n
-            """ + self.current_layers_repr()
+        formatted_string: str = (
+            f"""\n\n==== GATOH model variables at iteration {self.current_iteration}/{self.max_iterations} ====\n\nAggregate community opinion: {self.aggregate_opinions[self.current_iteration - 1]}\nNumber of radicalised agents in the community: {self.radicalised_agents[self.current_iteration - 1]}\nLog odds of radicalisation ocurring: {self.radicalisation_logodds[self.current_iteration - 1]}\nNumber of opinion silencing events: {self.silenced_agents[self.current_iteration - 1]}\nNumber of opinion negation events: {self.negated_agents[self.current_iteration - 1]}\n\n**** Layer statistics ****\n\n"""
+            + self.current_layers_repr()
+        )
         return formatted_string
 
 
