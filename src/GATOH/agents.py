@@ -165,6 +165,12 @@ class Agent:
                 )
 
     def get_attribute(self, name: str) -> Any:
+        """
+        Return any dynamically added attribute held by the Agent object.
+
+        :param name: The name of the parameter to get.
+        :return: The value stored for the parameter.
+        """
         try:
             return self.__dict__[name]
         except KeyError:
@@ -173,6 +179,34 @@ class Agent:
                 category=UserWarning,
             )
             return None
+
+    def store_previous_opinion(self) -> None:
+        """
+        A setter method that stores the Agent's current opinion into the previous opinion.
+        """
+        self.previous_opinion = self.opinion
+
+    def change_opinion(self, opinion_delta: float) -> None:
+        """
+        A setter method that changes the Agent's current opinion by a given delta value.
+
+        :param opinion_delta: The delta value by which to shift the Agent's current opinion.
+        """
+        self.opinion += opinion_delta
+
+        # Constrain the opinion back to [-1.0, 1.0] as needed
+        if self.opinion < -1.0:
+            self.opinion = -1.0
+        elif self.opinion > 1.0:
+            self.opinion = 1.0
+
+    def change_radicalisation(self, radicalisation: bool) -> None:
+        """
+        A setter method that changes the Agent's radicalisation value.
+
+        :param radicalisation: The boolean radicalisation value to set.
+        """
+        self.radicalised = radicalisation
 
     def step(self, rw_distributions: dict[str, tuple[float, float]]) -> None:
         """

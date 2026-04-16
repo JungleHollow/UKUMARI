@@ -31,6 +31,14 @@ class GraphNode:
         self.index: int
         self.agent: Agent = agent
 
+    def set_index(self, idx: int) -> None:
+        """
+        A setter method to set the GraphNode's index value.
+
+        :param idx: The index to set for this GraphNode.
+        """
+        self.index = idx
+
     @override
     def __str__(self) -> str:
         """
@@ -64,6 +72,38 @@ class GraphEdge:
         self.from_node: int = from_node
         self.to_node: int = to_node
         self.hierarchy: str = hierarchy
+
+    def set_index(self, idx: int) -> None:
+        """
+        A setter function that changes this GraphEdge's index value.
+
+        :param idx: The index to store for this GraphEdge.
+        """
+        self.index = idx
+
+    def set_weighting(self, value: float) -> None:
+        """
+        A setter function that changes this GraphEdge's weighting value.
+
+        :param value: The new weighting to store for this GraphEdge.
+        """
+        self.weighting = value
+
+    def update_from_node(self, idx: int) -> None:
+        """
+        A setter function that updates the from_node's index for this GraphEdge.
+
+        :param idx: The from_node's new index value to update to.
+        """
+        self.from_node = idx
+
+    def update_to_node(self, idx: int) -> None:
+        """
+        A setter function that updates the to_node's index for this GraphEdge.
+
+        :param idx: The to_node's new index value to update to.
+        """
+        self.to_node = idx
 
     @override
     def __str__(self) -> str:
@@ -186,7 +226,7 @@ class Graph:
         Will also update the graph node_count attribute
         """
         for index in self.graph.node_indices():
-            self.graph[index].index = index
+            self.graph[index].set_index(index)
         self.update_edge_indices()
         self.node_count = len(self.graph.nodes())
 
@@ -215,7 +255,7 @@ class Graph:
                 type(graph_edge) is list
             ):  # Workaround for unknown error where a list of a single GraphEdge is added to the base graph at some point
                 graph_edge = graph_edge[0]
-            graph_edge.index = idx
+            graph_edge.set_index(idx)
             self.graph.update_edge_by_index(idx, graph_edge)
         self.edge_count = len(self.graph.edges())
 
@@ -337,8 +377,8 @@ class Graph:
 
         graph_nodes: list[GraphNode] = []
         for index, node in enumerate(generated_graph.nodes()):
-            graph_node: GraphNode = GraphNode(agents[index])
-            graph_node.index = index
+            graph_node: GraphNode = GraphNode(deepcopy(agents[index]))
+            graph_node.set_index(index)
             graph_nodes.append(graph_node)
         for idx, graph_node in enumerate(graph_nodes):
             generated_graph[idx] = (
@@ -479,7 +519,7 @@ class Graph:
         :return: A boolean indicating if the Agent exists in the Graph.
         """
         for node in self.graph.nodes():
-            if agent == node.agent:
+            if agent.id == node.agent.id:
                 return True
         return False
 
@@ -490,7 +530,7 @@ class Graph:
         :param agent: The Agent whose previous opinion is being set.
         """
         agent_node: Any = self.node_from_agent(agent)
-        agent_node.agent.previous_opinion = deepcopy(agent_node.agent.opinion)
+        agent_node.agent.store_previous_opinion()
 
     def agent_opinion_change(self, agent: Agent, change_delta: float) -> None:
         """
@@ -500,11 +540,7 @@ class Graph:
         :param change_delta: The value by which to change the Agent's current opinion.
         """
         agent_node: Any = self.node_from_agent(agent)
-        agent_node.agent.opinion += change_delta
-        if agent_node.agent.opinion < -1.0:
-            agent_node.agent.opinion = -1.0
-        elif agent_node.agent.opinion > 1.0:
-            agent_node.agent.opinion = 1.0
+        agent_node.agent.change_opinion(change_delta)
 
     def agent_radicalisation_change(self, agent: Agent, radicalisation: bool) -> None:
         """
@@ -514,7 +550,7 @@ class Graph:
         :param radicalisation: The boolean radicalisation status.
         """
         agent_node: Any = self.node_from_agent(agent)
-        agent_node.agent.radicalisation = radicalisation
+        agent_node.agent.change_radicalisation(radicalisation)
 
     def node_from_agent(self, agent: Agent) -> Any:
         """
@@ -535,7 +571,7 @@ class Graph:
         :return: The Agent's node index within the social hierarchy Graph.
         """
         for idx, node in enumerate(self.graph.nodes()):
-            if agent == node.agent:
+            if agent.id == node.agent.id:
                 return idx
         return 0
 
@@ -600,14 +636,17 @@ class Graph:
         in the hierarchy will be shifted. Aims to simulate dynamic relationships between agents across timesteps.
         """
         for edge in self.graph.edges():
-            rw_value: float = value_rw_delta(
+            new_weighting: float = value_rw_delta(
                 edge.weighting, self.rw_params[0], self.rw_params[1]
             )
-            if (edge.weighting + rw_value < -1.0) or (edge.weighting + rw_value > 1.0):
-                # Constrain the relationship weightings to [-1, 1]
-                continue
-            else:
-                edge.weighting += rw_value
+
+            # Constrain the weighting back to [-1.0, 1.0] as needed
+            if new_weighting < -1.0:
+                new_weighting = -1.0
+            elif new_weighting > 1.0:
+                new_weighting = 1.0
+
+            edge.set_weighting(new_weighting)
 
     def estimate_neighbour_opinions(self, agent: Agent) -> dict[str, float]:
         """
@@ -624,7 +663,7 @@ class Graph:
             observed_opinions[direct_neighbour.agent.id] = observed_opinion
 
         for node in self.graph.nodes():
-            if node.agent == agent or node in direct_neighbours:
+            if node.agent.id == agent.id or node in direct_neighbours:
                 # Only look at indirect neighbours
                 continue
 
@@ -653,7 +692,7 @@ class Graph:
             observed_opinions.append(observed_opinion)
 
         for node in self.graph.nodes():
-            if node.agent == agent or node in direct_neighbours:
+            if node.agent.id == agent.id or node in direct_neighbours:
                 # Only look at indirect neighbours
                 continue
 
@@ -695,9 +734,9 @@ class Graph:
 
         for i in self.graph.nodes():
             for j in self.graph.nodes():
-                if i == j:
+                if i.agent.id == j.agent.id:
                     continue
-                opinion_distance: float = i.agent.opinion - j.agent.opinion
+                opinion_distance: float = abs(i.agent.opinion - j.agent.opinion)
                 opinion_distances[f"{i.index},{j.index}"] = opinion_distance
 
         y: float = sum(opinion_distances.values()) / len(opinion_distances.values())
@@ -718,7 +757,7 @@ class Graph:
         :return: A boolean indicating if this Graph is contained within the iterable.
         """
         for graph in iterable:
-            if self == graph:
+            if self.name == graph.name:
                 return True
         return False
 

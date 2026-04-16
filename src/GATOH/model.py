@@ -402,10 +402,11 @@ class ABModel:
 
         .. math::
 
-            \lambda^{a} = \frac{\sum_{i}\sum_{j \neq i}OC'_{i}(j)^{a}}{\sum_{i}\sum_{j \neq i}OC'_{i}(j)}
+            \lambda^{a} = \frac{\sum_{i}\sum_{j \neq i}|OC'_{i}(j)^{a}|}{\sum_{i}\sum_{j \neq i}|OC'_{i}(j)|}
 
-        where :math:`OC'_{i}(j)^{a}` is Agent :math:`j`'s opinion climate value as perceived by Agent :math:`i`
-        in the social hierarchy layer :math:`a`.
+        where :math:`|OC'_{i}(j)^{a}|` is Agent :math:`j`'s opinion climate value as perceived by Agent :math:`i`
+        in the social hierarchy layer :math:`a`. Although, the absolute of this value should be taken, as this
+        is representative of the real `strength' of a layer.
 
         :param layer: The index of the layer of interest.
         :return: The layer interdependence measure for the layer of interest.
@@ -420,7 +421,7 @@ class ABModel:
             observed_opinions_layer: dict[str, dict] = {}
             for agent_i in hierarchy.graph.nodes():
                 agent_i_oc: dict[str, float] = hierarchy.estimate_neighbour_opinions(
-                    agent_i
+                    agent_i.agent
                 )
                 observed_opinions_layer[agent_i.agent.id] = agent_i_oc
             observed_opinions_all[hierarchy.name] = observed_opinions_layer
@@ -429,13 +430,15 @@ class ABModel:
         # Get the sum of all the estimated opinion values, only for the layer of interest (a)
         oc_a: dict[str, dict] = observed_opinions_all[layer_of_interest]
         for agent_a_i, oc_a_i in oc_a.items():
-            interdep_numerator += sum(oc_a_i.values())
+            for oc_val in oc_a_i.values():
+                interdep_numerator += abs(oc_val)
 
         interdep_denominator: float = 0.0
         # Get the sum of all the estimated opinion values for all layers (k)
         for layer_k, oc_k in observed_opinions_all.items():
             for agent_k_i, oc_k_i in oc_k.items():
-                interdep_denominator += sum(oc_k_i.values())
+                for oc_val in oc_k_i.values():
+                    interdep_denominator += abs(oc_val)
 
         # Calculate the interdependence value for the layer
         layer_interdependence: float = interdep_numerator / interdep_denominator
