@@ -73,7 +73,7 @@ class InfluentialTester:
         "non_influential_connectivity": 3,
         "relationship": (-0.4, 0.4),
         "influential_connectivity": 20,
-        "influencial_relationship": (-0.9, 0.9),
+        "influential_relationship": (-0.9, 0.9),
         "social_susceptibility": 0.5,
         "personality": "social",
         "personal_benefit": True,
@@ -252,8 +252,8 @@ class InfluentialTester:
             new_edges: dict = {"from_node": [], "to_node": [], "weighting": []}
 
             for agent_node in graph.graph.nodes():
-                # Return a filtered list including all indices except the one for the current node
-                valid_indices: list[int] = list(agent_indices ^ {agent_node.index})
+                # Return a filtered tuple including all indices except the one for the current node
+                valid_indices: tuple = tuple(agent_indices ^ {agent_node.index})
 
                 selected_indices: tuple = tuple(
                     np.random.choice(
@@ -298,6 +298,79 @@ class InfluentialTester:
         :return: A list containing all the created Graph objects.
         """
         created_graphs: list[gr.Graph] = []
+
+        # Calculate the number of agents that are not influential
+        n_ni_agents: int = self.n_agents - self.n_negative
+
+        # Create a set of the agent indices to be used later in iteration
+        agent_indices: set = {i for i in range(len(agents))}
+
+        noninf_rel_range: tuple[float, float] = InfluentialTester.AGENT_CHARACTERISTICS[
+            "relationship"
+        ]
+        inf_rel_range: tuple[float, float] = InfluentialTester.AGENT_CHARACTERISTICS[
+            "influential_relationship"
+        ]
+
+        for idx, hierarchy in enumerate(hierarchies):
+            graph: gr.Graph = gr.Graph(hierarchy, rw_distributions[idx])
+
+            # Initialise the graph nodes using the full Agent population
+            graph.add_nodes(agents)
+
+            new_edges: dict = {"from_node": [], "to_node": [], "weighting": []}
+
+            for agent_node in graph.graph.nodes():
+                # Return a filtered tuple including all indices except the one for the current node
+                valid_indices: tuple = tuple(agent_indices ^ {agent_node.index})
+
+                # Declare data types without assigning any values
+                selected_indices: tuple
+                edge_weighting: float
+
+                if agent_node.index < n_ni_agents:
+                    # The Agent is non-influential
+                    selected_indices = tuple(
+                        np.random.choice(
+                            valid_indices,
+                            size=InfluentialTester.AGENT_CHARACTERISTICS[
+                                "non_influential_connectivity"
+                            ],
+                            replace=False,
+                        )
+                    )
+
+                    for selected_index in selected_indices:
+                        edge_weighting = rd.uniform(
+                            noninf_rel_range[0], noninf_rel_range[1]
+                        )
+
+                        # Flip the to_ and from_ indices to make the weighting representative of the impact that agent_node has on others.
+                        new_edges["from_node"].append(selected_index)
+                        new_edges["to_node"].append(agent_node.index)
+                        new_edges["weighting"].append(edge_weighting)
+                else:
+                    # The Agent is influential
+                    selected_indices = tuple(
+                        np.random.choice(
+                            valid_indices,
+                            size=InfluentialTester.AGENT_CHARACTERISTICS[
+                                "influential_connectivity"
+                            ],
+                            replace=False,
+                        )
+                    )
+
+                    for selected_index in selected_indices:
+                        edge_weighting = rd.uniform(inf_rel_range[0], inf_rel_range[1])
+
+                        # Flip the to_ and from_ indices to make the weighting representative of the imapct that agent_node has on others.
+                        new_edges["from_node"].append(selected_index)
+                        new_edges["to_node"].append(agent_node.index)
+                        new_edges["weighting"].append(edge_weighting)
+
+            graph.add_edges(new_edges)
+            created_graphs.append(graph)
 
         return created_graphs
 
