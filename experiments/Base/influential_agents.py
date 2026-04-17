@@ -162,6 +162,55 @@ class InfluentialTester:
         """
         created_agents: list[agt.Agent] = []
 
+        nn_agents: int = self.n_agents - self.n_negative
+        nn_opinion_range: tuple[float, float] = InfluentialTester.AGENT_CHARACTERISTICS[
+            "non_negative_opinion"
+        ]
+
+        agent_behaviour: tuple[str, float] = (
+            InfluentialTester.AGENT_CHARACTERISTICS["personality"],
+            InfluentialTester.AGENT_CHARACTERISTICS["social_susceptibility"],
+        )
+
+        created_count: int = 0
+        while created_count < nn_agents:
+            nn_agent_id: str = f"NONN{created_count + 1:04}"
+
+            nn_agent_opinion: float = rd.uniform(
+                nn_opinion_range[0], nn_opinion_range[1]
+            )
+
+            nn_agent: agt.Agent = agt.Agent(
+                nn_agent_id,
+                InfluentialTester.HIERARCHY_WEIGHTINGS,
+                nn_agent_opinion,
+                agent_behaviour,
+                InfluentialTester.AGENT_CHARACTERISTICS["personal_benefit"],
+            )
+
+            created_agents.append(nn_agent)
+            created_count += 1
+
+        n_opinion_range: tuple[float, float] = InfluentialTester.AGENT_CHARACTERISTICS[
+            "negative_opinion"
+        ]
+
+        created_count = 0
+        while created_count < self.n_negative:
+            n_agent_id: str = f"NINF{created_count + 1:04}"
+
+            n_agent_opinion: float = rd.uniform(n_opinion_range[0], n_opinion_range[1])
+
+            n_agent: agt.Agent = agt.Agent(
+                n_agent_id,
+                InfluentialTester.HIERARCHY_WEIGHTINGS,
+                n_agent_opinion,
+                agent_behaviour,
+                InfluentialTester.AGENT_CHARACTERISTICS["personal_benefit"],
+            )
+
+            created_agents.append(n_agent)
+            created_count += 1
         return created_agents
 
     def create_li_graphs(
