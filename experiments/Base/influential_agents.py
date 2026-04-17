@@ -25,6 +25,13 @@ class InfluentialTester:
     density of relationships between them and other Agents in the hierarchies.
     """
 
+    # The model parameters used when creating the ABModel instances
+    MODEL_PARAMETERS: dict[str, Any] = {
+        "iterations": 100,
+        "radical_thresh": 0.98,
+        "negation_thresh": 0.99,
+    }
+
     # The social hierarchies that will exist in the models
     HIERARCHY_NAMES: list[str] = [
         "family",
@@ -52,33 +59,14 @@ class InfluentialTester:
         "cultural": 0.25,
     }
 
-    # Defining the Agents that will be created across both models
-    AGENT_CHARACTERISTICS: dict[str, dict[str, Any]] = {
-        # Low influence Agents that make up the entire graph in the li case, and the majority in the hi case
-        "LOWI0001": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0002": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0003": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0004": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0005": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0006": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0007": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0008": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0009": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0010": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0011": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0012": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0013": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0014": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0015": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0016": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0017": {"opinion": rd.uniform(0.0, 1.0)},
-        "LOWI0018": {"opinion": rd.uniform(0.0, 1.0)},
-        # Low influence Agents with a strong negative opinion
-        "LOWI0019": {"opinion": rd.uniform(-1.0, -0.5)},
-        "LOWI0020": {"opinion": rd.uniform(-1.0, -0.5)},
-        # High influence Agents that replace the negative opinion Agents above
-        "INFL0001": {"opinion": rd.uniform(-1.0, -0.5)},
-        "INFL0002": {"opinion": rd.uniform(-1.0, -0.5)},
+    # Defining the distributions of the characteristics for Agents that will be used in the experiment
+    AGENT_CHARACTERISTICS: dict[str, Any] = {
+        "non_negative_opinion": (0.0, 0.8),
+        "negative_opinion": (-1.0, -0.5),
+        "non_influential_connectivity": 3,
+        "influential_connectivity": 20,
+        "social_susceptibility": 0.5,
+        "personality": "social",
     }
 
     def __init__(self):
@@ -89,36 +77,108 @@ class InfluentialTester:
         self.create_hi_agents()
 
         self.li_graphs: list[gr.Graph] = []
-        self.create_li_graphs()
+        self.create_li_graphs(
+            InfluentialTester.HIERARCHY_NAMES,
+            InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
+            self.li_agents,
+        )
 
         self.hi_graphs: list[gr.Graph] = []
-        self.create_hi_graphs()
+        self.create_hi_graphs(
+            InfluentialTester.HIERARCHY_NAMES,
+            InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
+            self.hi_agents,
+        )
 
         self.li_model: md.ABModel = md.ABModel(
             InfluentialTester.HIERARCHY_NAMES,
             InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
+            iterations=InfluentialTester.MODEL_PARAMETERS["iterations"],
+            negation_threshold=InfluentialTester.MODEL_PARAMETERS["negation_thresh"],
+            radicalisation_threshold=InfluentialTester.MODEL_PARAMETERS[
+                "radical_thresh"
+            ],
         )
         self.hi_model: md.ABModel = md.ABModel(
             InfluentialTester.HIERARCHY_NAMES,
             InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
+            iterations=InfluentialTester.MODEL_PARAMETERS["iterations"],
+            negation_threshold=InfluentialTester.MODEL_PARAMETERS["negation_thresh"],
+            radicalisation_threshold=InfluentialTester.MODEL_PARAMETERS[
+                "radical_thresh"
+            ],
         )
 
-    def create_li_agents(self):
+    def create_li_agents(self) -> list[agt.Agent]:
+        """
+        Creates the population of Agents to be used in the low influence scenario.
+
+        :return: A list containing all the returned Agent objects.
+        """
+        created_agents: list[agt.Agent] = []
+
+        return created_agents
+
+    def create_hi_agents(self) -> list[agt.Agent]:
+        """
+        Creates the population of Agents to be used in the high influence scenario.
+
+        :return: A list containing all the created Agent objects.
+        """
+        created_agents: list[agt.Agent] = []
+
+        return created_agents
+
+    def create_li_graphs(
+        self,
+        hierarchies: list[str],
+        rw_distributions: list[tuple[float, float]],
+        agents: list[agt.Agent],
+    ) -> list[gr.Graph]:
+        """
+        Creates the graphs for the low influence model.
+
+        :param hierarchies: A list of the names of the hierarchies that each graph should represent.
+        :param rw_distributions: A dictionary defining the random walk distributions for each social hierarchy.
+        :param agents: The population of Agents from which the graphs will be constructed.
+        :return: A list containing all the created Graph objects.
+        """
+        created_graphs: list[gr.Graph] = []
+
+        return created_graphs
+
+    def create_hi_graphs(
+        self,
+        hierarchies: list[str],
+        rw_distributions: list[tuple[float, float]],
+        agents: list[agt.Agent],
+    ) -> list[gr.Graph]:
+        """
+        Creates the graphs for the high influence model.
+
+        :param hierarchies: A list of the names of the hierarchies that each graph should represent.
+        :param rw_distributions: A dictionary defining the random walk distributions for each social hierarchy.
+        :param agents: The population of Agents from which the graphs will be constructed.
+        :return: A list containing all the created Graph objects.
+        """
+        created_graphs: list[gr.Graph] = []
+
+        return created_graphs
+
+    def run_model_li(self, model_parameters: dict[str, Any]) -> None:
+        """
+        Runs the low influence model.
+
+        :param model_parameters: A dictionary containing the labelled values for the low influence model's parameters.
+        """
         pass
 
-    def create_hi_agents(self):
-        pass
+    def run_model_hi(self, model_parameters: dict[str, Any]) -> None:
+        """
+        Runs the high influence model.
 
-    def create_li_graphs(self):
-        pass
-
-    def create_hi_graphs(self):
-        pass
-
-    def run_model_li(self):
-        pass
-
-    def run_model_hi(self):
+        :param model_parameters: A dictionary containing the labelled values for the high influence model's parameters.
+        """
         pass
 
 
