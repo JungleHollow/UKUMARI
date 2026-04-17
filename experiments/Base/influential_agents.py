@@ -374,22 +374,50 @@ class InfluentialTester:
 
         return created_graphs
 
-    def run_model_li(self, model_parameters: dict[str, Any]) -> None:
+    def setup_model_li(self) -> None:
+        """
+        Adds the appropriate Agent and Graph objects to the li model.
+        """
+        self.li_model.add_agents(self.li_agents)
+        self.li_model.add_graphs(
+            self.li_graphs,
+            InfluentialTester.HIERARCHY_NAMES,
+            InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
+        )
+
+    def setup_model_hi(self) -> None:
+        """
+        Adds the appropriate Agent and Graph objects to the hi model.
+        """
+        self.hi_model.add_agents(self.hi_agents)
+        self.hi_model.add_graphs(
+            self.hi_graphs,
+            InfluentialTester.HIERARCHY_NAMES,
+            InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
+        )
+
+    def run_model_li(self) -> None:
         """
         Runs the low influence model.
-
-        :param model_parameters: A dictionary containing the labelled values for the low influence model's parameters.
         """
-        pass
+        self.li_model.iterate()
 
-    def run_model_hi(self, model_parameters: dict[str, Any]) -> None:
+    def run_model_hi(self) -> None:
         """
         Runs the high influence model.
-
-        :param model_parameters: A dictionary containing the labelled values for the high influence model's parameters.
         """
-        pass
+        self.hi_model.iterate()
 
 
 if __name__ == "__main__":
     tester: InfluentialTester = InfluentialTester()
+
+    # Setup both of the tester's models
+    tester.setup_model_li()
+    tester.setup_model_hi()
+
+    # Run the low influence scenario
+    tester.run_model_li()
+
+    # Run the high influence scenario
+    tester.run_model_hi()

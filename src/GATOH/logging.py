@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,7 +24,7 @@ class LoggerVariables:
     # The calculated layer interdependence of each hierarchy at each timestep
     layer_interdependences: dict[str, list[float]] = field(default_factory=dict)
     # The calculated layer polarisation of each hierarchy at each timestep
-    layers_polarisation: dict[str, list[float]] = field(default_factory=dict)
+    layer_polarisations: dict[str, list[float]] = field(default_factory=dict)
     # The log odds of radicalisation in the model at each timestep
     radicalisation_logodds: list[float] = field(default_factory=list)
     # The current iteration that the simulation is at
@@ -46,13 +47,13 @@ class LoggerVariables:
         self.radicalisation_logodds = [0.0 for _ in range(self.max_iterations)]
 
         self.layer_interdependences = {}
-        self.layers_polarisation = {}
+        self.layer_polarisations = {}
 
         for hierarchy in hierarchies:
             self.layer_interdependences[hierarchy] = [
                 0.0 for _ in range(self.max_iterations)
             ]
-            self.layers_polarisation[hierarchy] = [
+            self.layer_polarisations[hierarchy] = [
                 0.0 for _ in range(self.max_iterations)
             ]
 
@@ -117,7 +118,7 @@ class LoggerVariables:
         :param layer_polars: A <hierarchy : polarisation value> dictionary that tracks the layer polarisations to be stored for this iteration.
         """
         for hierarchy, polarisation in layer_polars.items():
-            self.layers_polarisation[hierarchy][self.current_iteration - 1] = (
+            self.layer_polarisations[hierarchy][self.current_iteration - 1] = (
                 polarisation
             )
 
@@ -155,7 +156,7 @@ class LoggerVariables:
             interdepence: float = self.layer_interdependences[hierarchy][
                 self.current_iteration - 1
             ]
-            polarisation: float = self.layers_polarisation[hierarchy][
+            polarisation: float = self.layer_polarisations[hierarchy][
                 self.current_iteration - 1
             ]
             hierarchy_string: str = f"{hierarchy}\t{interdepence}\t{polarisation}\n"
@@ -173,6 +174,30 @@ class LoggerVariables:
             + self.current_layers_repr()
         )
         return formatted_string
+
+    def get_fieldnames(self) -> list[str]:
+        """
+        A helper function that provides a place to collect and return all of the dataclass' attribute names for use
+        as CSV column names.
+
+        :return: A list containing the names of all the attributes in this dataclass.
+        """
+        attribute_names: list[str] = [
+            "iterations",
+            "aggregate_opinions",
+            "radicalised_agents",
+            "silenced_agents",
+            "negated_agents",
+            "radicalisation_logodds",
+        ]
+
+        for key in self.layer_interdependences.keys():
+            attribute_names.append(f"layer_interdependences_{key}")
+
+        for key in self.layer_polarisations.keys():
+            attribute_names.append(f"layer_polarisations_{key}")
+
+        return attribute_names
 
 
 class GATOHLogger:
@@ -233,7 +258,7 @@ class GATOHLogger:
         aggregate_opinion: float,
         radicalisation_logodds: float,
         layer_interdependences: dict[str, float],
-        layers_polarisation: dict[str, float],
+        layer_polarisations: dict[str, float],
     ) -> None:
         """
         Store all relevant model variables and states based on the level of logging that has been specified.
@@ -246,7 +271,7 @@ class GATOHLogger:
         self.variables.store_aggregate_opinion(aggregate_opinion)
         self.variables.store_radicalisation_logodds(radicalisation_logodds)
         self.variables.store_layer_interdepences(layer_interdependences)
-        self.variables.store_layer_polarisations(layers_polarisation)
+        self.variables.store_layer_polarisations(layer_polarisations)
 
     def iteration_print(self) -> str:
         """
@@ -261,3 +286,45 @@ class GATOHLogger:
         else:
             print_string = self.format_non_interval_print()
             return print_string
+
+    def save_data(self, save_path: str) -> bool:
+        """
+        Saves all logged data to the specified path.
+
+        :param save_path: The path to save the logger's data to.
+        :return: A boolean indicating if data was successfully saved or not.
+        """
+        # An empty string means that no explicit save path was given to the model, and it is assumed that no saving is desired.
+        if save_path == "":
+            return False
+
+        with open(save_path, "w", newline="") as csvfile:
+            field_names: list[str] = self.variables.get_fieldnames()
+
+            csv_writer: csv.DictWriter = csv.DictWriter(csvfile, fieldnames=field_names)
+            csv_writer.writeheader()
+
+            for i in range(self.variables.max_iterations):
+                row_dict: dict[str, str] = {
+                    "iterations": f"{i}",
+                    "aggregate_opinions": f"{self.variables.aggregate_opinions[i]}",
+                    "radicalised_agents": f"{self.variables.radicalised_agents[i]}",
+                    "silenced_agents": f"{self.variables.silenced_agents[i]}",
+                    "negated_agents": f"{self.variables.negated_agents[i]}",
+                    "radicalisation_logodds": f"{self.variables.radicalisation_logodds[i]}",
+                }
+
+                # Append interdependences and polarisations in the same loop as the headers should handle ordering automatically
+                for hierarchy in self.variables.layer_interdependences.keys():
+                    row_dict[f"layer_interdependences_{hierarchy}"] = (
+                        f"{self.variables.layer_interdependences[hierarchy][i]}"
+                    )
+                    row_dict[f"layer_polarisations_{hierarchy}"] = (
+                        f"{self.variables.layer_polarisations[hierarchy][i]}"
+                    )
+
+                csv_writer.writerow(row_dict)
+
+            return True
+
+        return False

@@ -24,13 +24,15 @@ class ABModel:
         iterations: int = 100,
         negation_threshold: float = 0.99,
         radicalisation_threshold: float = 0.95,
+        data_file: str = "",
     ) -> None:
         """
-        :param hierarchy_names: A list of strings representing the names of all social hierachies that will exist in the model
+        :param hierarchy_names: A list of strings representing the names of all social hierachies that will exist in the model.
         :param hierarchy_rw_distributions: A list of (mean, variance) tuples defining the parameters of normal distributions used in random walks for their corresponding hierarchies.
-        :param iterations: The number of iterations that the model will run for
+        :param iterations: The number of iterations that the model will run for.
         :param negation_threshold: A threshold that, when surpassed by Agents, will cause their opinion to become its additive inverse.
         :param radicalisation_threshold: A threshold that determined how strong of an absolute opinion an Agent must hold before they begin to consider becoming radicalised.
+        :param data_file: The path to which the logger's data should be saved to after iterations are run.
         """
         self.hierarchy_information: dict[str, tuple[float, float]] = {}
         for idx, hierarchy in enumerate(hierarchy_names):
@@ -50,6 +52,8 @@ class ABModel:
 
         self.negation_threshold: float = negation_threshold
         self.radicalisation_threshold: float = radicalisation_threshold
+
+        self.data_file: str = data_file
 
     def add_graph(self, graph: Graph) -> None:
         """
@@ -244,6 +248,12 @@ class ABModel:
             print(iteration_print_string)
 
             self.current_iteration += 1
+        # Call the logger's save_data function which handles data persistence appropriately
+        data_saved: bool = self.logger.save_data(self.data_file)
+        if data_saved:
+            print(
+                f"\n\nGATOH logger data was successfully written to the file at path: {self.data_file}\n\n"
+            )
 
     def step(self) -> None:
         """
