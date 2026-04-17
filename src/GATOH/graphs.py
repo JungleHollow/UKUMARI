@@ -709,11 +709,14 @@ class Graph:
         summed_opinions: float = sum(
             observed_opinions
         )  # Sum all of the observed opinions
-        opinion_climate: float = summed_opinions / float(
-            len(observed_opinions)
-        )  # Find the average of the aggregated, relevant opinions
 
-        return opinion_climate
+        if len(observed_opinions) >= 1:
+            opinion_climate: float = summed_opinions / float(
+                len(observed_opinions)
+            )  # Find the average of the aggregated, relevant opinions
+            return opinion_climate
+        else:
+            return 0.0
 
     def calculate_polarisation(self) -> float:
         r"""

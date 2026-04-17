@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random as rd
+from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -29,7 +30,7 @@ class InfluentialTester:
     # The parameters set for the tester class itself
     TEST_PARAMETERS: dict[str, Any] = {
         "n_agents": 40,
-        "negative_fraction": 0.1,
+        "n_negative": 4,
     }
 
     # The model parameters used when creating the ABModel instances
@@ -86,12 +87,7 @@ class InfluentialTester:
     def __init__(self):
         # Store the class parameters within the instance
         self.n_agents: int = InfluentialTester.TEST_PARAMETERS["n_agents"]
-        self.negative_fraction: float = InfluentialTester.TEST_PARAMETERS[
-            "negative_fraction"
-        ]
-
-        # Calculate the number of negative agents
-        self.n_negative: int = int(self.n_agents * self.negative_fraction)
+        self.n_negative: int = InfluentialTester.TEST_PARAMETERS["n_negative"]
 
         self.li_agents: list[agt.Agent] = self.create_li_agents()
         self.li_graphs: list[gr.Graph] = self.create_li_graphs(
@@ -140,18 +136,28 @@ class InfluentialTester:
             "non_negative_opinion"
         ]
 
+        n_opinion_range: tuple[float, float] = InfluentialTester.AGENT_CHARACTERISTICS[
+            "negative_opinion"
+        ]
+
         agent_behaviour: tuple[str, float] = (
             InfluentialTester.AGENT_CHARACTERISTICS["personality"],
             InfluentialTester.AGENT_CHARACTERISTICS["social_susceptibility"],
         )
 
+        # Define data types but do not assign any values
+        agent_id: str
+        agent_opinion: float
+        agent: agt.Agent
+
         created_count: int = 0
-        while created_count < self.n_agents:
-            agent_id: str = f"NONN{created_count + 1:04}"
+        while created_count < self.n_agents - self.n_negative:
+            created_count += 1
+            agent_id = f"NONN{created_count:04}"
 
             agent_opinion: float = rd.uniform(nn_opinion_range[0], nn_opinion_range[1])
 
-            agent: agt.Agent = agt.Agent(
+            agent = agt.Agent(
                 agent_id,
                 InfluentialTester.HIERARCHY_WEIGHTINGS,
                 agent_opinion,
@@ -160,7 +166,24 @@ class InfluentialTester:
             )
 
             created_agents.append(agent)
+
+        created_count = 0
+        while created_count < self.n_negative:
             created_count += 1
+            agent_id = f"NGTV{created_count:04}"
+
+            agent_opinion = rd.uniform(n_opinion_range[0], n_opinion_range[1])
+
+            agent = agt.Agent(
+                agent_id,
+                InfluentialTester.HIERARCHY_WEIGHTINGS,
+                agent_opinion,
+                agent_behaviour,
+                InfluentialTester.AGENT_CHARACTERISTICS["personal_benefit"],
+            )
+
+            created_agents.append(agent)
+
         return created_agents
 
     def create_hi_agents(self) -> list[agt.Agent]:
@@ -183,7 +206,8 @@ class InfluentialTester:
 
         created_count: int = 0
         while created_count < nn_agents:
-            nn_agent_id: str = f"NONN{created_count + 1:04}"
+            created_count += 1
+            nn_agent_id: str = f"NONN{created_count:04}"
 
             nn_agent_opinion: float = rd.uniform(
                 nn_opinion_range[0], nn_opinion_range[1]
@@ -196,9 +220,7 @@ class InfluentialTester:
                 agent_behaviour,
                 InfluentialTester.AGENT_CHARACTERISTICS["personal_benefit"],
             )
-
             created_agents.append(nn_agent)
-            created_count += 1
 
         n_opinion_range: tuple[float, float] = InfluentialTester.AGENT_CHARACTERISTICS[
             "negative_opinion"
@@ -206,7 +228,8 @@ class InfluentialTester:
 
         created_count = 0
         while created_count < self.n_negative:
-            n_agent_id: str = f"NINF{created_count + 1:04}"
+            created_count += 1
+            n_agent_id: str = f"INFN{created_count:04}"
 
             n_agent_opinion: float = rd.uniform(n_opinion_range[0], n_opinion_range[1])
 
@@ -217,9 +240,7 @@ class InfluentialTester:
                 agent_behaviour,
                 InfluentialTester.AGENT_CHARACTERISTICS["personal_benefit"],
             )
-
             created_agents.append(n_agent)
-            created_count += 1
         return created_agents
 
     def create_li_graphs(
@@ -253,7 +274,7 @@ class InfluentialTester:
             graph: gr.Graph = gr.Graph(hierarchy, rw_distributions[idx])
 
             # Initialise the graph nodes using the population of Agents
-            graph.add_nodes(agents)
+            graph.add_nodes(deepcopy(agents))
 
             new_edges: dict = {"from_node": [], "to_node": [], "weighting": []}
 
@@ -322,7 +343,7 @@ class InfluentialTester:
             graph: gr.Graph = gr.Graph(hierarchy, rw_distributions[idx])
 
             # Initialise the graph nodes using the full Agent population
-            graph.add_nodes(agents)
+            graph.add_nodes(deepcopy(agents))
 
             new_edges: dict = {"from_node": [], "to_node": [], "weighting": []}
 
@@ -384,9 +405,9 @@ class InfluentialTester:
         """
         Adds the appropriate Agent and Graph objects to the li model.
         """
-        self.li_model.add_agents(self.li_agents)
+        self.li_model.add_agents(deepcopy(self.li_agents))
         self.li_model.add_graphs(
-            self.li_graphs,
+            deepcopy(self.li_graphs),
             InfluentialTester.HIERARCHY_NAMES,
             InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
         )
@@ -395,9 +416,9 @@ class InfluentialTester:
         """
         Adds the appropriate Agent and Graph objects to the hi model.
         """
-        self.hi_model.add_agents(self.hi_agents)
+        self.hi_model.add_agents(deepcopy(self.hi_agents))
         self.hi_model.add_graphs(
-            self.hi_graphs,
+            deepcopy(self.hi_graphs),
             InfluentialTester.HIERARCHY_NAMES,
             InfluentialTester.HIERARCHY_RW_DISTRIBUTIONS,
         )
@@ -418,12 +439,12 @@ class InfluentialTester:
 if __name__ == "__main__":
     tester: InfluentialTester = InfluentialTester()
 
-    # Setup both of the tester's models
+    # Setup the li model
     tester.setup_model_li()
-    tester.setup_model_hi()
-
     # Run the low influence scenario
     tester.run_model_li()
 
+    # Setup the hi model
+    tester.setup_model_hi()
     # Run the high influence scenario
     tester.run_model_hi()
