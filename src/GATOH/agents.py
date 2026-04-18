@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+import pickle
 import random as rd
 import warnings
+import zipfile
 from collections.abc import Iterable
 from copy import deepcopy
 from typing import Any, Iterator, override
@@ -445,6 +448,86 @@ class AgentSet:
         self.parent_model = model
         self.agents: list = []
         self.random: rd.Random = rd.Random()
+
+    def save_agentset(self, directory_path: str) -> None:
+        """
+        Save the Agent objects into a compressed subdirectory representing the the saved AgentSet.
+
+        :param directory_path: The path to the directory where the agentset subdirectory should be created.
+        """
+        subdirectory_path: str = f"{directory_path}/_agentset"
+
+        # Removes the subdirectory if it already exists to allow for a new overwrite
+        if os.path.isdir(subdirectory_path):
+            os.rmdir(subdirectory_path)
+
+        # Create the _agentset subdirectory
+        os.mkdir(subdirectory_path)
+
+        agent_save_paths: list[str] = []
+
+        for agent in self.agents:
+            agent_save_path: str = f"{subdirectory_path}/_agent_{agent.id}.pkl"
+            # Pickle the python Agent object
+            with open(agent_save_path, "wb") as agent_file:
+                pickle.dump(agent, agent_file)
+            agent_save_paths.append(agent_save_path)
+
+        zip_path: str = f"{subdirectory_path}.zip"
+
+        # Removes the zip file if it already exists to allow for a new overwrite
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+
+        # Compress the subdirectory to minimise storage and encapsulate all the Agents into a single object
+        with zipfile.ZipFile(
+            zip_path, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+        ) as subdir_zip:
+            for graph_path in agent_save_paths:
+                subdir_zip.write(graph_path)
+
+        # Remove the uncompressed subdirectory if compression was successful
+        if os.path.exists(zip_path):
+            os.rmdir(subdirectory_path)
+
+        return None
+
+    def load_agentset(self, load_path: str) -> None:
+        """
+        Loads an AgentSet that has been saved following the same process as in the save_agentset() function.
+
+        :param load_path: The path to the model's overall save directory.
+        """
+        zip_load_path: str = f"{load_path}/_agentset.zip"
+
+        if not os.path.exists(zip_load_path):
+            raise FileNotFoundError(
+                f"No saved AgentSet was found at the path: {zip_load_path}"
+            )
+
+        # The path to the uncompressed agentset subdirectory
+        subdirectory_path: str = f"{load_path}/_agentset"
+
+        # Remove any existing subdirectory with the same name to replace it with the newly loaded one
+        if os.path.isdir(subdirectory_path):
+            os.rmdir(subdirectory_path)
+
+        # Create the uncompressed directory
+        os.mkdir(subdirectory_path)
+
+        # Extract all the Agent pickles to the uncompressed directory
+        with zipfile.ZipFile(
+            zip_load_path, mode="r", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+        ) as subdir_zip:
+            subdir_zip.extractall(path=subdirectory_path)
+
+        # Unpickle each Agent object and add it to the AgentSet.
+        for agent_pickle_path in os.listdir(subdirectory_path):
+            with open(agent_pickle_path, "rb") as agent_pickle:
+                agent_object: Agent = pickle.load(agent_pickle)
+                self.add(agent_object)
+
+        return None
 
     def __len__(self) -> int:
         """

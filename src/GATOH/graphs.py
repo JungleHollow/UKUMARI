@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import warnings
+import zipfile
 from collections.abc import Iterable
 from copy import deepcopy
 from random import Random
@@ -173,18 +175,26 @@ class Graph:
             self.generation_params[key] = value
         return None
 
-    def load_graph(self, path: str, name: str) -> None:
+    def load_graph(
+        self, path: str, name: str, rw_params: tuple[float, float] | None = None
+    ) -> None:
         """
         Loads a Graph object stored in the GraphML format from the given path.
         The social hierarchy name must be explicitly passed with this call.
 
         :param path: Path to a stored graph file.
+        :param name: The name of the hierarchy that the stored Graph belongs to.
+        :param rw_params: The mean and variance of the Graph's random walk distribution (optional).
         """
         graph: list[Any] = rx.read_graphml(path)
         self.graph = graph[0]
         self.node_count = len(self.graph.nodes())
         self.edge_count = len(self.graph.edges())
         self.name = name
+
+        if rw_params:
+            self.rw_params = rw_params
+
         return None
 
     def save_graph(self, path: str) -> None:
@@ -194,6 +204,10 @@ class Graph:
         :param path: Path to which the Graph will be saved.
         """
         rx.write_graphml(self.graph, path)
+
+        if not os.path.exists(path):
+            raise EnvironmentError(f"Failed to write graph {self.name} to path: {path}")
+
         return None
 
     def get_node(self, node_index: int) -> Any:
@@ -809,6 +823,95 @@ class GraphSet:
         self.graphs: list[Graph] = []
         if graphs:
             self.graphs = graphs
+
+    def save_graphset(self, directory_path: str) -> None:
+        """
+        Save all of the graphs contained within this graphset into a compressed subdirectory representing
+        the saved GraphSet.
+
+        :param directory_path: The path to the directory where the graphset subdirectory should be created.
+        """
+        # Assume that the passed directory path is to the base save path, not directly to the graphset subdirectory
+        subdirectory_path: str = f"{directory_path}/_graphset"
+
+        if os.path.isdir(subdirectory_path):
+            # Remove the existing directory to allow for a new overwrite
+            os.rmdir(subdirectory_path)
+
+        # Create the _graphset subdirectory
+        os.mkdir(subdirectory_path)
+
+        graph_save_paths: list[str] = []
+
+        for graph in self.graphs:
+            # Save path for the specific hierarchy graph
+            graph_save_path: str = f"{subdirectory_path}/graph_{graph.name}.graphml"
+            graph.save_graph(graph_save_path)
+            graph_save_paths.append(graph_save_path)
+
+        zip_path: str = f"{subdirectory_path}.zip"
+
+        if os.path.exists(zip_path):
+            # Remove the existing zip file to allow for a new overwrite
+            os.remove(zip_path)
+
+        # Compress the subdirectory to minimise storage, and encapsulate all graphs into a single object
+        with zipfile.ZipFile(
+            zip_path, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+        ) as subdir_zip:
+            for graph_path in graph_save_paths:
+                subdir_zip.write(graph_path)
+
+        # Remove the uncompressed subdirectory if compression was successful
+        if os.path.exists(zip_path):
+            os.rmdir(subdirectory_path)
+
+        return None
+
+    def load_graphset(
+        self, load_path: str, rw_params: dict[str, tuple[float, float]]
+    ) -> None:
+        """
+        Loads a GraphSet that has been saved following the same process as in the save_graphset() function.
+
+        :param load_path: The path to the model's overall save directory.
+        :param rw_params: A <name : rw_params> dictionary containing the relevant external information for each graph.
+        """
+        zip_load_path: str = f"{load_path}/_graphset.zip"
+
+        if not os.path.exists(zip_load_path):
+            raise FileNotFoundError(
+                f"No saved GraphSet was found at the path: {zip_load_path}"
+            )
+
+        # The path to the uncompressed subdirectory
+        subdirectory_path: str = f"{load_path}/_graphset"
+
+        # Remove any existing subdirectory with the same name to replace it with the newly loaded one
+        if os.path.isdir(subdirectory_path):
+            os.rmdir(subdirectory_path)
+
+        # Create the uncompressed subdirectory
+        os.mkdir(subdirectory_path)
+
+        # Extract all the graphml files to the uncompressed subdirectory
+        with zipfile.ZipFile(
+            zip_load_path, mode="r", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+        ) as subdir_zip:
+            subdir_zip.extractall(path=subdirectory_path)
+
+        # Load each graphml file and add it to the GraphSet
+        for graphml_path in os.listdir(subdirectory_path):
+            # Extracts the name of the hierarchy without the "graph_" prefix or file type suffix
+            graph_name: str = graphml_path[6:-8]
+
+            graph_object: Graph = Graph("", (0.0, 0.0))
+            graph_object.load_graph(graphml_path, graph_name, rw_params[graph_name])
+
+            # Add the Graph object to the GraphSet
+            self.add_graph(graph_object)
+
+        return None
 
     def add_graph(self, graph: Graph) -> None:
         """

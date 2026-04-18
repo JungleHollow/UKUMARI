@@ -26,6 +26,7 @@ class ABModel:
         silencing_threshold: float = 0.8,
         negation_threshold: float = 0.99,
         radicalisation_threshold: float = 0.9,
+        save_dir: str = "",
         data_file: str = "",
         model_id: str = "",
     ) -> None:
@@ -36,6 +37,7 @@ class ABModel:
         :param silencing_threshold: A threshold that, when surpassed by Agents, will cause them to cease expressing their opinions in a given hierarchy.
         :param negation_threshold: A threshold that, when surpassed by Agents, will cause their opinion to become its additive inverse.
         :param radicalisation_threshold: A threshold that determined how strong of an absolute opinion an Agent must hold before they begin to consider becoming radicalised.
+        :param save_dir: The path to a directory in which all of this model's non-logger data should be saved to.
         :param data_file: The path to which the logger's data should be saved to after iterations are run.
         :param model_id: An optional field to give the created model object a referencable ID.
         """
@@ -59,8 +61,17 @@ class ABModel:
         self.negation_threshold: float = negation_threshold
         self.radicalisation_threshold: float = radicalisation_threshold
 
+        self.save_dir: str = save_dir
         self.data_file: str = data_file
         self.model_id: str = model_id
+
+    def save_model(self) -> None:
+        """
+        Saves the model's GraphSet and AgentSet objects, including all objects recursively contained.
+        """
+        if self.save_dir == "":
+            # An empty save directory is assumed to mean that no saving is desired.
+            return None
 
     def add_graph(self, graph: Graph) -> GraphSet:
         """

@@ -404,9 +404,9 @@ if __name__ == "__main__":
     # The model parameters used when creating the ABModel instances
     MODEL_PARAMETERS: dict[str, Any] = {
         "iterations": 100,
-        "silencing_thresh": 0.9,
-        "radical_thresh": 0.98,
-        "negation_thresh": 0.99,
+        "silencing_thresh": 0.95,
+        "radical_thresh": 0.99,
+        "negation_thresh": 0.999,
     }
 
     # The social hierarchies that will exist in the models
