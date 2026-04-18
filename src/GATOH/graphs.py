@@ -38,6 +38,7 @@ class GraphNode:
         :param idx: The index to set for this GraphNode.
         """
         self.index = idx
+        return None
 
     @override
     def __str__(self) -> str:
@@ -80,6 +81,7 @@ class GraphEdge:
         :param idx: The index to store for this GraphEdge.
         """
         self.index = idx
+        return None
 
     def set_weighting(self, value: float) -> None:
         """
@@ -88,6 +90,7 @@ class GraphEdge:
         :param value: The new weighting to store for this GraphEdge.
         """
         self.weighting = value
+        return None
 
     def update_from_node(self, idx: int) -> None:
         """
@@ -96,6 +99,7 @@ class GraphEdge:
         :param idx: The from_node's new index value to update to.
         """
         self.from_node = idx
+        return None
 
     def update_to_node(self, idx: int) -> None:
         """
@@ -104,6 +108,7 @@ class GraphEdge:
         :param idx: The to_node's new index value to update to.
         """
         self.to_node = idx
+        return None
 
     @override
     def __str__(self) -> str:
@@ -166,6 +171,7 @@ class Graph:
                 )
                 continue
             self.generation_params[key] = value
+        return None
 
     def load_graph(self, path: str, name: str) -> None:
         """
@@ -179,6 +185,7 @@ class Graph:
         self.node_count = len(self.graph.nodes())
         self.edge_count = len(self.graph.edges())
         self.name = name
+        return None
 
     def save_graph(self, path: str) -> None:
         """
@@ -187,6 +194,7 @@ class Graph:
         :param path: Path to which the Graph will be saved.
         """
         rx.write_graphml(self.graph, path)
+        return None
 
     def get_node(self, node_index: int) -> Any:
         """
@@ -229,6 +237,7 @@ class Graph:
             self.graph[index].set_index(index)
         self.update_edge_indices()
         self.node_count = len(self.graph.nodes())
+        return None
 
     def add_nodes(self, agents: Iterable[Agent]) -> None:
         """
@@ -243,6 +252,7 @@ class Graph:
 
         self.graph.add_nodes_from(nodes)
         self.update_node_indices()
+        return None
 
     def update_edge_indices(self) -> None:
         """
@@ -258,6 +268,7 @@ class Graph:
             graph_edge.set_index(idx)
             self.graph.update_edge_by_index(idx, graph_edge)
         self.edge_count = len(self.graph.edges())
+        return None
 
     def add_edges(self, edges: dict) -> None:
         """
@@ -305,6 +316,7 @@ class Graph:
 
         self.graph.add_edges_from(graph_edges)
         self.update_edge_indices()
+        return None
 
     def generate_graph(self, agents: list[Agent], method: str = "small-world") -> Any:
         """
@@ -476,6 +488,7 @@ class Graph:
         else:
             self.graph.add_edges_from(updated_edge)
         self.update_edge_indices()
+        return None
 
     def remove_node(self, node: int) -> None:
         """
@@ -493,6 +506,7 @@ class Graph:
         for edge in edges_to_remove:
             self.remove_edge(edge[0], edge[1])
         # No need to update indices, as rustworkx will automatically add new nodes/edges into the largest empty index
+        return None
 
     def remove_edge(self, from_node: int, to_node: int) -> None:
         """
@@ -510,6 +524,7 @@ class Graph:
                 f"WARNING: Attempted to remove edge ({from_node} -> {to_node}) which does not exist in the graph.",
                 category=UserWarning,
             )
+        return None
 
     def agent_in_graph(self, agent: Agent) -> bool:
         """
@@ -531,6 +546,7 @@ class Graph:
         """
         agent_node: Any = self.node_from_agent(agent)
         agent_node.agent.store_previous_opinion()
+        return None
 
     def agent_opinion_change(self, agent: Agent, change_delta: float) -> None:
         """
@@ -541,6 +557,7 @@ class Graph:
         """
         agent_node: Any = self.node_from_agent(agent)
         agent_node.agent.change_opinion(change_delta)
+        return None
 
     def agent_radicalisation_change(self, agent: Agent, radicalisation: bool) -> None:
         """
@@ -551,6 +568,7 @@ class Graph:
         """
         agent_node: Any = self.node_from_agent(agent)
         agent_node.agent.change_radicalisation(radicalisation)
+        return None
 
     def node_from_agent(self, agent: Agent) -> Any:
         """
@@ -596,6 +614,7 @@ class Graph:
             1. Handle dynamic relationships within the graph.
         """
         self.dynamic_relationships()
+        return None
 
     def neighbour_influences(self, agent: Agent) -> float:
         """
@@ -647,6 +666,7 @@ class Graph:
                 new_weighting = 1.0
 
             edge.set_weighting(new_weighting)
+        return None
 
     def estimate_neighbour_opinions(self, agent: Agent) -> dict[str, float]:
         """
@@ -795,6 +815,7 @@ class GraphSet:
         :param graph: The Graph object to add to the GraphSet.
         """
         self.graphs.append(graph)
+        return None
 
     def graph_at_index(self, graph_index: int) -> Graph | None:
         """

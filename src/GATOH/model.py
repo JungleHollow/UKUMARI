@@ -22,14 +22,16 @@ class ABModel:
         hierarchy_names: list[str],
         hierarchy_rw_distributions: list[tuple[float, float]],
         iterations: int = 100,
+        silencing_threshold: float = 0.8,
         negation_threshold: float = 0.99,
-        radicalisation_threshold: float = 0.95,
+        radicalisation_threshold: float = 0.9,
         data_file: str = "",
     ) -> None:
         """
         :param hierarchy_names: A list of strings representing the names of all social hierachies that will exist in the model.
         :param hierarchy_rw_distributions: A list of (mean, variance) tuples defining the parameters of normal distributions used in random walks for their corresponding hierarchies.
         :param iterations: The number of iterations that the model will run for.
+        :param silencing_threshold: A threshold that, when surpassed by Agents, will cause them to cease expressing their opinions in a given hierarchy.
         :param negation_threshold: A threshold that, when surpassed by Agents, will cause their opinion to become its additive inverse.
         :param radicalisation_threshold: A threshold that determined how strong of an absolute opinion an Agent must hold before they begin to consider becoming radicalised.
         :param data_file: The path to which the logger's data should be saved to after iterations are run.
@@ -38,8 +40,8 @@ class ABModel:
         for idx, hierarchy in enumerate(hierarchy_names):
             self.hierarchy_information[hierarchy] = hierarchy_rw_distributions[idx]
 
-        self.graphs: GraphSet = GraphSet(self)
         self.agents: AgentSet = AgentSet(self)
+        self.graphs: GraphSet = GraphSet(self)
 
         # A model-handled 'base' Graph that keeps track of all relationships across the social hierarchies
         # (Used to greatly simplify network-level graph calculations)
@@ -50,6 +52,7 @@ class ABModel:
         self.current_iteration: int = 0
         self.max_iterations: int = iterations
 
+        self.silencing_threshold: float = silencing_threshold
         self.negation_threshold: float = negation_threshold
         self.radicalisation_threshold: float = radicalisation_threshold
 
@@ -66,6 +69,7 @@ class ABModel:
 
         # Also add new edges to the model's base graph
         self.add_base_graph_edges(graph)
+        return None
 
     def add_graphs(
         self, graphs: list[Any], names: list[str], rw_params: list[tuple[float, float]]
@@ -85,6 +89,8 @@ class ABModel:
                 new_graph: Graph = Graph(names[idx], rw_params[idx])
                 new_graph.load_graph(graph, names[idx])
                 self.graphs.add_graph(new_graph)
+        self.update_base_graph()
+        return None
 
     def generate_graphs(
         self,
@@ -127,6 +133,7 @@ class ABModel:
             )
 
             self.add_graph(hierarchy_graph)
+        return None
 
     def add_agent(self, agent: Agent) -> int:
         """
@@ -150,6 +157,7 @@ class ABModel:
 
         # Add all the new Agent objects to the model-handled 'base' graph
         self.base_graph.add_nodes(agents)
+        return None
 
     def generate_agents(
         self,
@@ -190,6 +198,7 @@ class ABModel:
                 personality=agent_personality,
                 parameters=parameters,
             )
+        return None
 
     def iterate(self) -> None:
         """
@@ -254,6 +263,7 @@ class ABModel:
             print(
                 f"\n\nGATOH logger data was successfully written to the file at path: {self.data_file}\n\n"
             )
+        return None
 
     def step(self) -> None:
         """
@@ -264,6 +274,7 @@ class ABModel:
             graph.step()
         for agent in self.agents:
             agent.step(self.hierarchy_information)
+        return None
 
     def update(self) -> None:
         """
@@ -296,6 +307,7 @@ class ABModel:
 
             # Update the Agent object
             agent.update(silenced, negation)
+        return None
 
     def logger_iteration(self) -> None:
         """
@@ -323,6 +335,7 @@ class ABModel:
             layer_interdependences,
             layers_polarisation,
         )
+        return None
 
     def calculate_aggregate_opinion(self) -> float:
         """
@@ -351,7 +364,7 @@ class ABModel:
                 radicalised_count += 1
 
         radicalisation_p: float = radicalised_count / len(self.agents)
-        log_odds: float = np.log(radicalisation_p / (1.0 - radicalisation_p))
+        log_odds: float = np.log1p(radicalisation_p / (1.0 - radicalisation_p))
         return log_odds
 
     def calculate_layers_polarisation(self) -> dict[str, float]:
@@ -497,6 +510,7 @@ class ABModel:
             new_edges["weighting"].append(graph_edge.weighting)
 
         self.base_graph.add_edges(new_edges)
+        return None
 
     def update_base_graph(self) -> None:
         """
@@ -530,3 +544,4 @@ class ABModel:
                         "name": [hierarchy.name],
                     }
                     self.base_graph.add_edges(new_edge)
+        return None

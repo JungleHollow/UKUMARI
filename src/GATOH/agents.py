@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import random as rd
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from random import Random
 from typing import Any, Iterator, override
 
 import numpy as np
@@ -166,6 +166,7 @@ class Agent:
                 self.__dict__[name] = draw_random_value(
                     distribution, parameters=parameters
                 )
+        return None
 
     def get_attribute(self, name: str) -> Any:
         """
@@ -188,6 +189,7 @@ class Agent:
         A setter method that stores the Agent's current opinion into the previous opinion.
         """
         self.previous_opinion = self.opinion
+        return None
 
     def change_opinion(self, opinion_delta: float) -> None:
         """
@@ -202,6 +204,7 @@ class Agent:
             self.opinion = -1.0
         elif self.opinion > 1.0:
             self.opinion = 1.0
+        return None
 
     def change_radicalisation(self, radicalisation: bool) -> None:
         """
@@ -210,6 +213,7 @@ class Agent:
         :param radicalisation: The boolean radicalisation value to set.
         """
         self.radicalised = radicalisation
+        return None
 
     def step(self, rw_distributions: dict[str, tuple[float, float]]) -> None:
         """
@@ -220,6 +224,7 @@ class Agent:
                                     hierarchy in the model
         """
         self.evolve_hierarchies(rw_distributions)
+        return None
 
     def update(self, opinion_silenced: dict[str, bool], negation_ocurred: bool) -> None:
         """
@@ -233,6 +238,7 @@ class Agent:
         self.is_silenced = opinion_silenced  # Update is_silenced
         if negation_ocurred:
             self.opinion *= -1.0  # Invert the Agent's current opinion
+        return None
 
     def opinion_silencing(
         self,
@@ -305,8 +311,8 @@ class Agent:
 
     def radicalisation(
         self,
-        hierarchy_changes: Iterable[float],
-        hierarchies: Iterable[str],
+        hierarchy_changes: list[float],
+        hierarchies: list[str],
         threshold: float,
     ) -> bool:
         """
@@ -343,7 +349,10 @@ class Agent:
                     return self.radicalised
             case "erratic":
                 # Radicalisation is influenced by personal opinion to some extent, but is largely stochastically determined
-                pass
+                random_threshold: float = rd.random()
+                if (absolute_opinion * 0.9 >= threshold) and (random_threshold >= 0.5):
+                    self.radicalised = True
+                    return self.radicalised
             case "impulsive":
                 # The agent places very strong consideration on tangible benefits over anything else
                 if (
@@ -353,8 +362,24 @@ class Agent:
                     return self.radicalised
             case "social":
                 # Radicalisation is strongly determined by the opinion climate and neighbour opinions rather than internal factors
-                pass
-        return False  # TODO: Finish this method (returning False to suppress typing warnings)
+                absolute_changes: float = 0.0
+
+                for change in hierarchy_changes:
+                    absolute_change: float = abs(change)
+                    if absolute_change >= self.social_susceptibility:
+                        # A strong opinion change was caused by some hierarchy
+                        self.radicalised = True
+                        return True
+                    else:
+                        absolute_changes += absolute_change
+                # If no changes were strong enough individually, check for the aggregate (with a relatively lower threshold)
+                if absolute_changes >= self.social_susceptibility * (
+                    len(hierarchy_changes) // 2
+                ):
+                    self.radicalised = True
+                    return self.radicalised
+        # If this is somehow reached, an error has ocurred (but False is returned just in case)
+        return False
 
     def evolve_hierarchies(
         self, rw_distributions: dict[str, tuple[float, float]]
@@ -377,8 +402,9 @@ class Agent:
                 self.social_weightings[key] = 1.0
             else:
                 self.social_weightings[key] = rw_result
+        return None
 
-    def life_events(self):
+    def life_events(self) -> None:
         """
         Experimental function that aims to model the ways in which Agent behaviours change according to major random life events over time
         """
@@ -418,7 +444,7 @@ class AgentSet:
         """
         self.parent_model = model
         self.agents: list = []
-        self.random: Random = Random()
+        self.random: rd.Random = rd.Random()
 
     def __len__(self) -> int:
         """
@@ -479,6 +505,7 @@ class AgentSet:
         """
         for idx, agent in enumerate(self.agents):
             agent.index = idx
+        return None
 
     def discard(self, agent: Agent) -> bool:
         """

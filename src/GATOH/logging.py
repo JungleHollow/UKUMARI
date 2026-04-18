@@ -65,6 +65,7 @@ class LoggerVariables:
         """
         if flag:
             self.radicalised_agents[self.current_iteration - 1] += 1
+        return None
 
     def increment_silenced(self, flag: bool) -> None:
         """
@@ -74,6 +75,7 @@ class LoggerVariables:
         """
         if flag:
             self.silenced_agents[self.current_iteration - 1] += 1
+        return None
 
     def increment_negated(self, flag: bool) -> None:
         """
@@ -83,6 +85,7 @@ class LoggerVariables:
         """
         if flag:
             self.negated_agents[self.current_iteration - 1] += 1
+        return None
 
     def store_aggregate_opinion(self, agg_opp: float) -> None:
         """
@@ -91,6 +94,7 @@ class LoggerVariables:
         :param agg_opp: The aggregate opinion value to store for the current iteration.
         """
         self.aggregate_opinions[self.current_iteration - 1] = agg_opp
+        return None
 
     def store_radicalisation_logodds(self, r_logodds: float) -> None:
         """
@@ -99,6 +103,7 @@ class LoggerVariables:
         :param r_logodds: The model's radicalisation log odds value to store for the current iteration.
         """
         self.radicalisation_logodds[self.current_iteration - 1] = r_logodds
+        return None
 
     def store_layer_interdepences(self, layer_interdeps: dict[str, float]) -> None:
         """
@@ -110,6 +115,7 @@ class LoggerVariables:
             self.layer_interdependences[hierarchy][self.current_iteration - 1] = (
                 interdependence
             )
+        return None
 
     def store_layer_polarisations(self, layer_polars: dict[str, float]) -> None:
         """
@@ -121,6 +127,7 @@ class LoggerVariables:
             self.layer_polarisations[hierarchy][self.current_iteration - 1] = (
                 polarisation
             )
+        return None
 
     def new_iteration(self, init: bool = False) -> None:
         """
@@ -142,6 +149,7 @@ class LoggerVariables:
         self.radicalised_agents[t_now] = self.radicalised_agents[t_last]
         self.silenced_agents[t_now] = self.silenced_agents[t_last]
         self.negated_agents[t_now] = self.negated_agents[t_last]
+        return None
 
     def current_layers_repr(self) -> str:
         """
@@ -252,6 +260,7 @@ class GATOHLogger:
         :param init: A flag indicating if this function is being called from the first iteration of the model.
         """
         self.variables.new_iteration(init=init)
+        return None
 
     def iteration(
         self,
@@ -272,6 +281,7 @@ class GATOHLogger:
         self.variables.store_radicalisation_logodds(radicalisation_logodds)
         self.variables.store_layer_interdepences(layer_interdependences)
         self.variables.store_layer_polarisations(layer_polarisations)
+        return None
 
     def iteration_print(self) -> str:
         """
