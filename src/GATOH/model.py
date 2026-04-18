@@ -371,8 +371,10 @@ class ABModel:
                 radicalised_count += 1
 
         radicalisation_p: float = radicalised_count / len(self.agents)
-        log_odds: float = np.log1p(radicalisation_p / (1.0 - radicalisation_p))
-        return log_odds
+        if 1.0 - radicalisation_p != 0.0:
+            log_odds: float = np.log1p(radicalisation_p / (1.0 - radicalisation_p))
+            return log_odds
+        return 0.0
 
     def calculate_layers_polarisation(self) -> dict[str, float]:
         r"""
