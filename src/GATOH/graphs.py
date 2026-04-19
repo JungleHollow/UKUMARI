@@ -7,6 +7,7 @@ import zipfile
 from collections.abc import Iterable
 from copy import deepcopy
 from random import Random
+from shutil import rmtree
 from typing import Any, Iterator, override
 
 import numpy as np
@@ -836,7 +837,7 @@ class GraphSet:
 
         if os.path.isdir(subdirectory_path):
             # Remove the existing directory to allow for a new overwrite
-            os.rmdir(subdirectory_path)
+            rmtree(subdirectory_path)
 
         # Create the _graphset subdirectory
         os.mkdir(subdirectory_path)
@@ -864,7 +865,7 @@ class GraphSet:
 
         # Remove the uncompressed subdirectory if compression was successful
         if os.path.exists(zip_path):
-            os.rmdir(subdirectory_path)
+            rmtree(subdirectory_path)
 
         return None
 
