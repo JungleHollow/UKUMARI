@@ -55,6 +55,7 @@ class InfluentialTester:
             silencing_threshold=MODEL_PARAMETERS["silencing_thresh"],
             negation_threshold=MODEL_PARAMETERS["negation_thresh"],
             radicalisation_threshold=MODEL_PARAMETERS["radical_thresh"],
+            save_dir=LI_SAVEDIR,
             data_file=LI_MODEL_DATAFILE,
             model_id="LI_MODEL",
         )
@@ -66,6 +67,7 @@ class InfluentialTester:
             silencing_threshold=MODEL_PARAMETERS["silencing_thresh"],
             negation_threshold=MODEL_PARAMETERS["negation_thresh"],
             radicalisation_threshold=MODEL_PARAMETERS["radical_thresh"],
+            save_dir=HI_SAVEDIR,
             data_file=HI_MODEL_DATAFILE,
             model_id="HI_MODEL",
         )
@@ -384,6 +386,7 @@ class InfluentialTester:
         Runs the low influence model.
         """
         self.li_model.iterate()
+        self.li_model.save_model()
         return None
 
     def run_model_hi(self) -> None:
@@ -391,6 +394,7 @@ class InfluentialTester:
         Runs the high influence model.
         """
         self.hi_model.iterate()
+        self.hi_model.save_model()
         return None
 
 
@@ -452,6 +456,10 @@ if __name__ == "__main__":
     # Define the save paths for each model's logged variables (must point to a .csv file)
     LI_MODEL_DATAFILE: str = "./experiments/Base/li_model_variables.csv"
     HI_MODEL_DATAFILE: str = "./experiments/Base/hi_model_variables.csv"
+
+    # Define the save directories for each model
+    LI_SAVEDIR: str = "./experiments/Base/InfluentialAgents_LI"
+    HI_SAVEDIR: str = "./experiments/Base/InfluentialAgents_HI"
 
     tester: InfluentialTester = InfluentialTester()
 
