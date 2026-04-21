@@ -1,0 +1,24 @@
+current_iteration: 100
+data_file: ./experiments/Base/li_model_variables.csv
+hierarchy_information:
+  cultural: !!python/tuple
+  - 0.0
+  - 0.2
+  family: !!python/tuple
+  - 0.0
+  - 0.01
+  friends: !!python/tuple
+  - 0.0
+  - 0.05
+  neighbours: !!python/tuple
+  - 0.0
+  - 0.08
+  religion: !!python/tuple
+  - 0.0
+  - 0.15
+max_iterations: 100
+model_id: LI_MODEL
+negation_threshold: 0.999
+radicalisation_threshold: 0.99
+save_dir: ./experiments/Base/InfluentialAgents_LI
+silencing_threshold: 0.95
