@@ -24,11 +24,13 @@ class GraphAlgTester:
         """
         # Store the class parameters within the instance
         self.algorithms: list[str] = TEST_PARAMETERS["generation_algorithms"]
+        self.num_agents: int = TEST_PARAMETERS["num_agents"]
 
         self.existing: bool = existing
 
         # Define the data types without assigning values
         self.model_agents: list[agt.Agent]
+        self.model_graphs: dict[str, list[gr.Graph]]
 
         # Dynamic model space
         self.models: dict[str, md.ABModel] = {}
@@ -45,9 +47,19 @@ class GraphAlgTester:
             self.models[algorithm] = algorithm_model
 
         if not self.existing:  # Objects are needed to define and run the models
-            pass
+            self.model_agents = self.create_agents(self.num_agents)
 
-    def create_agents(self) -> list[agt.Agent]:
+            self.model_graphs = {}
+            for algorithm in self.algorithms:
+                algorithm_graphs: list[gr.Graph] = self.create_graphs(
+                    algorithm,
+                    deepcopy(HIERARCHY_NAMES),
+                    deepcopy(HIERARCHY_RW_DISTRIBUTIONS),
+                    deepcopy(self.model_agents),
+                )
+                self.model_graphs[algorithm] = algorithm_graphs
+
+    def create_agents(self, num_agents: int) -> list[agt.Agent]:
         """
         Generates and returns the population of Agents that will be used across all models.
 
@@ -56,8 +68,41 @@ class GraphAlgTester:
 
         :return: A list containing all the returned Agent objects.
         """
-        # TODO: IMPLEMENT THIS FUNCTION
-        return []
+        created_agents: list[agt.Agent] = []
+
+        opinion_range: tuple[float, float] = AGENT_CHARACTERISTICS["opinion"]
+
+        # Define data types but do not assign any values
+        agent_id: str
+        agent_opinion: float
+        agent: agt.Agent
+        agent_behaviour: tuple[str, float]
+        personal_benefit: bool
+
+        created_count: int = 0
+        while created_count < num_agents:
+            created_count += 1
+            agent_id = f"AGNT{created_count:04}"
+
+            # Stochastically generate the important Agent attributes
+            agent_opinion = rd.uniform(opinion_range[0], opinion_range[1])
+            agent_behaviour = (agt._draw_personality(), rd.uniform(0.0, 1.0))
+            personal_benefit = rd.choice([True, False])
+
+            agent = agt.Agent(
+                agent_id,
+                deepcopy(HIERARCHY_WEIGHTINGS),
+                agent_opinion,
+                agent_behaviour,
+                personal_benefit,
+            )
+
+            created_agents.append(deepcopy(agent))
+
+            # Manual garbage collection
+            del agent
+
+        return deepcopy(created_agents)
 
     def create_graphs(
         self,
@@ -78,28 +123,54 @@ class GraphAlgTester:
         :param agents: The population of Agents from which the graphs will be constructed.
         :return: A list containing all the created Graph objects.
         """
-        # TODO: IMPLEMENT THIS FUNCTION
-        return []
+        created_graphs: list[gr.Graph] = []
+
+        rel_range: tuple[float, float] = AGENT_CHARACTERISTICS["relationship"]
+
+        for idx, hierarchy in enumerate(hierarchies):
+            graph: gr.Graph = gr.Graph(hierarchy, rw_distributions[idx])
+
+            graph.generate_graph(
+                deepcopy(agents), method=algorithm, relationship_range=rel_range
+            )
+
+            created_graphs.append(deepcopy(graph))
+
+            # Manual garbage collection
+            del graph
+
+        return deepcopy(created_graphs)
 
     def load_models(self) -> None:
         """
         Loads the model objects that have been previously saved at their respective directories.
         """
-        # TODO: IMPLEMENT THIS FUNCTION
+        for algorithm in self.algorithms:
+            self.models[algorithm].load_model(MODEL_SAVEDIRS[algorithm])
         return None
 
     def setup_models(self) -> None:
         """
         Adds the appropriate Agent and Graph objects to both models.
         """
-        # TODO: IMPLEMENT THIS FUNCTION
+        for algorithm in self.algorithms:
+            self.models[algorithm].add_agents(deepcopy(self.model_agents))
+            self.models[algorithm].add_graphs(
+                deepcopy(self.model_graphs[algorithm]),
+                deepcopy(HIERARCHY_NAMES),
+                deepcopy(HIERARCHY_RW_DISTRIBUTIONS),
+            )
+
         return None
 
     def run_models(self) -> None:
         """
         Runs each model in the tester class.
         """
-        # TODO: IMPLEMENT THIS FUNCTION
+        for algorithm in self.algorithms:
+            self.models[algorithm].iterate()
+            self.models[algorithm].save_model()
+
         return None
 
 
@@ -111,7 +182,8 @@ if __name__ == "__main__":
             "scale-free",
             "random",
             "blockmodel",
-        ]
+        ],
+        "num_agents": 50,
     }
 
     # Default model parameters will be used for all scenarios, no need to set explicitly
@@ -169,8 +241,14 @@ if __name__ == "__main__":
 
     if len(list(os.walk("./experiments/Base/GraphAlgorithms"))) < len(
         TEST_PARAMETERS["generation_algorithms"]
-    ):
-        # At least one algorithm's save subdirectory does not exist
+    ):  # At least one algorithm's save subdirectory does not exist
+        # Create the tester normally, setup the models, and begin iterations
         tester = GraphAlgTester()
+        tester.setup_models()
+        tester.run_models()
     else:  # Assume that all existing subdirectories include every algorithms's valid save subdirectory...
+        # Create the tester in "existing" mode, and examine the results
         tester = GraphAlgTester(existing=True)
+        tester.load_models()
+
+    # TODO: Add the graph visualisation functions here once those features are implemented...

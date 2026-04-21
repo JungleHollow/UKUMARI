@@ -333,12 +333,19 @@ class Graph:
         self.update_edge_indices()
         return None
 
-    def generate_graph(self, agents: list[Agent], method: str = "small-world") -> Any:
+    def generate_graph(
+        self,
+        agents: list[Agent],
+        method: str = "small-world",
+        relationship_range: tuple[float, float] = (-1.0, 1.0),
+    ) -> Any:
         """
         Randomly generate edges between existing Graph nodes and add them to the graph.
 
         :param agents: The subset of Agents in the base model that are being used as the nodes for this graph.
         :param method: The random generation method to use. Possible choices include: 'small-world', 'scale-free', 'random', 'blockmodel'; Defaults to 'small-world'.
+        :param relationship_range: The valid range of generated relationship strengths (at most, constrained to [-1.0, 1.0]).
+        :return: A reference to this Graph object.
         """
         if len(agents) <= 0:
             raise ValueError(
@@ -416,8 +423,8 @@ class Graph:
 
         for index, edge in generated_graph.edge_index_map().items():
             generated_value = random_gen.uniform(
-                -1, 1
-            )  # Generate a random value in the range [-1, 1]
+                relationship_range[0], relationship_range[1]
+            )  # Generate a random value in the specified range (default is [-1.0, 1.0])
 
             graph_edge: GraphEdge = GraphEdge(
                 self.name, edge[0], edge[1], weighting=generated_value

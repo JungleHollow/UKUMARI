@@ -15,6 +15,19 @@ import polars as pl
 
 from .utils import draw_random_value, random_coinflip, value_rw_delta
 
+# Definition of all valid, existing Agent personality types
+PERSONALITIES: list[str] = ["neutral", "rational", "erratic", "impulsive", "social"]
+
+
+def _draw_personality() -> str:
+    """
+    An Agent utility function that randomly draws a valid Agent personality type.
+
+    :return: The string representing the drawn personality type.
+    """
+    drawn_personality: str = rd.choice(PERSONALITIES)
+    return drawn_personality
+
 
 class Agent:
     """

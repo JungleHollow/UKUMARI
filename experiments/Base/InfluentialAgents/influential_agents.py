@@ -493,22 +493,14 @@ if __name__ == "__main__":
     ):  # At least one model save directory does not exist
         # Create the tester normally, setup the models, and begin iterations
         tester = InfluentialTester()
-
-        # Setup the models
         tester.setup_models()
-
-        # Run the low influence scenario
         tester.run_model_li()
-
-        # Run the high influence scenario
         tester.run_model_hi()
     elif os.path.exists(LI_SAVEDIR) and os.path.exists(
         HI_SAVEDIR
     ):  # Both model save directories exist
         # Create the tester in "existing" mode, and examine the results
         tester = InfluentialTester(existing=True)
-
-        # Load the existing models
         tester.load_models()
 
-        # TODO: Add the graph visualisation functions here once those features are implemented...
+    # TODO: Add the graph visualisation functions here once those features are implemented...
