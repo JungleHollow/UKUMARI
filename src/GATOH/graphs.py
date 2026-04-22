@@ -393,7 +393,7 @@ class Graph:
                 )
 
                 sbm_probabilities: np.ndarray = np.zeros(
-                    (sbm_n_blocks, sbm_n_blocks), dtype=np.float16
+                    (sbm_n_blocks, sbm_n_blocks), dtype=np.float64
                 )  # Initialise a BxB array to hold the probabilities for inter-block connections
                 for i in range(sbm_probabilities.shape[0]):
                     for j in range(sbm_probabilities.shape[1]):
@@ -868,7 +868,7 @@ class GraphSet:
             zip_path, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
         ) as subdir_zip:
             for graph_path in graph_save_paths:
-                subdir_zip.write(graph_path)
+                subdir_zip.write(graph_path, arcname=f"{os.path.basename(graph_path)}")
 
         # Remove the uncompressed subdirectory if compression was successful
         if os.path.exists(zip_path):
@@ -897,7 +897,7 @@ class GraphSet:
 
         # Remove any existing subdirectory with the same name to replace it with the newly loaded one
         if os.path.isdir(subdirectory_path):
-            os.rmdir(subdirectory_path)
+            rmtree(subdirectory_path)
 
         # Create the uncompressed subdirectory
         os.mkdir(subdirectory_path)
@@ -909,7 +909,10 @@ class GraphSet:
             subdir_zip.extractall(path=subdirectory_path)
 
         # Load each graphml file and add it to the GraphSet
-        for graphml_path in os.listdir(subdirectory_path):
+        for graphml_name in os.listdir(subdirectory_path):
+            print(graphml_name)
+            graphml_path: str = f"{subdirectory_path}/{graphml_name}"
+
             # Extracts the name of the hierarchy without the "graph_" prefix or file type suffix
             graph_name: str = graphml_path[6:-8]
 

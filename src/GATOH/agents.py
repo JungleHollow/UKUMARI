@@ -497,8 +497,8 @@ class AgentSet:
         with zipfile.ZipFile(
             zip_path, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
         ) as subdir_zip:
-            for graph_path in agent_save_paths:
-                subdir_zip.write(graph_path)
+            for agent_path in agent_save_paths:
+                subdir_zip.write(agent_path, arcname=f"{os.path.basename(agent_path)}")
 
         # Remove the uncompressed subdirectory if compression was successful
         if os.path.exists(zip_path):
@@ -524,7 +524,7 @@ class AgentSet:
 
         # Remove any existing subdirectory with the same name to replace it with the newly loaded one
         if os.path.isdir(subdirectory_path):
-            os.rmdir(subdirectory_path)
+            rmtree(subdirectory_path)
 
         # Create the uncompressed directory
         os.mkdir(subdirectory_path)
@@ -536,7 +536,9 @@ class AgentSet:
             subdir_zip.extractall(path=subdirectory_path)
 
         # Unpickle each Agent object and add it to the AgentSet.
-        for agent_pickle_path in os.listdir(subdirectory_path):
+        for agent_pickle_name in os.listdir(subdirectory_path):
+            print(agent_pickle_name)
+            agent_pickle_path: str = f"{subdirectory_path}/{agent_pickle_name}"
             with open(agent_pickle_path, "rb") as agent_pickle:
                 agent_object: Agent = pickle.load(agent_pickle)
                 self.add(agent_object)

@@ -4,6 +4,7 @@ import os
 from copy import deepcopy
 from datetime import datetime
 from random import choices, randint
+from shutil import rmtree
 from typing import Any
 
 import numpy as np
@@ -13,7 +14,7 @@ from rustworkx.rustworkx import NoEdgeBetweenNodes
 from .agents import Agent, AgentSet
 from .graphs import Graph, GraphEdge, GraphSet
 from .logging import GATOHLogger
-from .utils import create_config_file
+from .utils import YamlLoader, create_config_file
 from .visualisation import ABVisualiser
 
 
@@ -79,7 +80,7 @@ class ABModel:
 
         # In the case when attempting to save the model, an existing directory with the specified name will be deleted and newly created.
         if os.path.isdir(self.save_dir):
-            os.rmdir(self.save_dir)
+            rmtree(self.save_dir)
 
         # Create the save directory
         os.mkdir(self.save_dir)
@@ -123,7 +124,7 @@ class ABModel:
         # Recursively scan the files in load_dir
         for file_name in os.listdir(load_dir):
             file_path: str = f"{load_dir}/{file_name}"
-            file_type: str = file_name.split(".")[-1]
+            file_type: str = deepcopy(file_name).split(".")[-1]
             match file_type:
                 case "zip":
                     # Simply flag that any zip files exist, as these will then be decompressed and loaded by their respective parent modules
@@ -139,7 +140,9 @@ class ABModel:
                     config_prefix: str = file_name.split("_")[0]
                     if config_prefix == "model":
                         with open(file_path, "r") as config_file:
-                            config_data: dict[str, Any] = yaml.safe_load(config_file)
+                            config_data: dict[str, Any] = yaml.load(
+                                config_file, Loader=YamlLoader
+                            )
                             self.hierarchy_information = config_data[
                                 "hierarchy_information"
                             ]

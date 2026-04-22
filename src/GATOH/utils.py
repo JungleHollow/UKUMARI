@@ -295,6 +295,19 @@ def value_rw_delta(input_value: float, mean: float, variance: float) -> float:
 # ========== Data Persistence Utils ==========
 
 
+class YamlLoader(yaml.SafeLoader):
+    def construct_python_tuple(self, node):
+        """
+        Adds the ability to load Python tuples whilst maintaining safe_load functionality.
+        """
+        return tuple(self.construct_sequence(node))
+
+
+YamlLoader.add_constructor(
+    "tag:yaml.org,2002:python/tuple", YamlLoader.construct_python_tuple
+)
+
+
 def create_config_file(save_path: str, config_data: dict[str, Any]) -> None:
     """
     Creates a structured config file from the input config data, and then saves it to the specified path.

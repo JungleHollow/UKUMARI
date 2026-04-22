@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import random as rd
 from copy import deepcopy
+from hashlib import algorithms_available
 from typing import Any
 
 import numpy as np
@@ -46,6 +47,7 @@ class GraphAlgTester:
             )
             self.models[algorithm] = algorithm_model
 
+        # TODO: Optimise this statement to account for partial missing and existing saves
         if not self.existing:  # Objects are needed to define and run the models
             self.model_agents = self.create_agents(self.num_agents)
 
@@ -141,18 +143,37 @@ class GraphAlgTester:
 
         return deepcopy(created_graphs)
 
-    def load_models(self) -> None:
+    def load_models(self, existing_saves: list[str] | None = None) -> None:
         """
         Loads the model objects that have been previously saved at their respective directories.
+
+        :param existing_saves: An optional partial list of the algorithms representing existing models that can be loaded.
         """
+        if existing_saves:
+            for existing_save in existing_saves:
+                self.models[existing_save].load_model(MODEL_SAVEDIRS[existing_save])
+            return None
+
         for algorithm in self.algorithms:
             self.models[algorithm].load_model(MODEL_SAVEDIRS[algorithm])
         return None
 
-    def setup_models(self) -> None:
+    def setup_models(self, missing_saves: list[str] | None = None) -> None:
         """
         Adds the appropriate Agent and Graph objects to both models.
+
+        :param missing_saves: An optional partial list of the algorithms representing models that should be setup.
         """
+        if missing_saves:
+            for missing_save in missing_saves:
+                self.models[missing_save].add_agents(deepcopy(self.model_agents))
+                self.models[missing_save].add_graphs(
+                    deepcopy(self.model_graphs[missing_save]),
+                    deepcopy(HIERARCHY_NAMES),
+                    deepcopy(HIERARCHY_RW_DISTRIBUTIONS),
+                )
+            return None
+
         for algorithm in self.algorithms:
             self.models[algorithm].add_agents(deepcopy(self.model_agents))
             self.models[algorithm].add_graphs(
@@ -160,13 +181,20 @@ class GraphAlgTester:
                 deepcopy(HIERARCHY_NAMES),
                 deepcopy(HIERARCHY_RW_DISTRIBUTIONS),
             )
-
         return None
 
-    def run_models(self) -> None:
+    def run_models(self, missing_saves: list[str] | None = None) -> None:
         """
         Runs each model in the tester class.
+
+        :param missing_saves: An optional partial list of the algorithms representing models that should be run.
         """
+        if missing_saves:
+            for missing_save in missing_saves:
+                self.models[missing_save].iterate()
+                self.models[missing_save].save_model()
+            return None
+
         for algorithm in self.algorithms:
             self.models[algorithm].iterate()
             self.models[algorithm].save_model()
@@ -239,13 +267,32 @@ if __name__ == "__main__":
 
     tester: GraphAlgTester
 
-    if len(list(os.walk("./experiments/Base/GraphAlgorithms"))) < len(
-        TEST_PARAMETERS["generation_algorithms"]
-    ):  # At least one algorithm's save subdirectory does not exist
+    # Check for existing saved models and store the relevant information
+    save_dirs = list(os.walk("./experiments/Base/GraphAlgorithms"))[0][1]
+
+    directory_missing: bool = False
+    existing_savedirs: list[str] = []
+    missing_savedirs: list[str] = []
+
+    for algorithm, save_dir in MODEL_SAVEDIRS.items():
+        dir_name: str = deepcopy(save_dir).split("/")[-1]
+        if dir_name in save_dirs:
+            existing_savedirs.append(algorithm)
+        else:
+            directory_missing = True
+            missing_savedirs.append(algorithm)
+
+    if directory_missing:  # At least one algorithm's save subdirectory does not exist
         # Create the tester normally, setup the models, and begin iterations
         tester = GraphAlgTester()
-        tester.setup_models()
-        tester.run_models()
+
+        if len(existing_savedirs) > 0:  # At least one model exists
+            tester.load_models(existing_saves=existing_savedirs)
+            tester.setup_models(missing_saves=missing_savedirs)
+            tester.run_models(missing_saves=missing_savedirs)
+        else:  # Assume all models should be newly created and run
+            tester.setup_models()
+            tester.run_models()
     else:  # Assume that all existing subdirectories include every algorithms's valid save subdirectory...
         # Create the tester in "existing" mode, and examine the results
         tester = GraphAlgTester(existing=True)
