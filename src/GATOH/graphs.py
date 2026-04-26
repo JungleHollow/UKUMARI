@@ -651,6 +651,7 @@ class Graph:
         agent_index: int = self.get_agent_index(agent)
         neighbour_indices: rx.NodeIndices = self.graph.neighbors(agent_index)
 
+        # TODO: Account for neighbour radicalisation in this function
         final_change: float = 0.0
         for neighbour_index in neighbour_indices:
             relationship_strength: float = self.get_relationship(

@@ -7,6 +7,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
+import matplotlib.pyplot as plt
 import numpy as np
 import rustworkx as rx
 import yaml
@@ -317,5 +318,61 @@ def create_config_file(save_path: str, config_data: dict[str, Any]) -> None:
     """
     with open(save_path, "w") as config_file:
         yaml.dump(config_data, config_file)
+
+    return None
+
+
+# ========== Visualisation and Graphing Utils ==========
+
+
+def plot_graph(
+    x_vals: dict[str, list],
+    y_vals: dict[str, list],
+    plot_type: str = "line",
+    show_fig: bool = False,
+    x_label: str | None = None,
+    y_label: str | None = None,
+    title: str | None = None,
+    save_path: str | None = None,
+) -> None:
+    """
+    A helper function that handles 2D plotting of data point, with possible separation by categories.
+
+    :param x_vals: A <category : values> mapping that defines the values for the x-axis.
+    :param y_vals: A <category : values> mapping that defines the values for the y-axis.
+    :param plot_type: The type of graph to plot.
+    :param show_fig: A flag indicating if the graph should be displayed in the script output.
+    :param x_label: An optional label to give to the x-axis.
+    :param y_label: An optional label to give to the y-axis.
+    :param title: An optional title to give to the graph.
+    :param save_path: The path to save the graph image to.
+    """
+    fig, ax = plt.subplots()
+
+    for key in x_vals.keys():
+        current_x: list = x_vals[key]
+        current_y: list = y_vals[key]
+
+        match plot_type:
+            case "line":
+                ax.plot(current_x, current_y, label=key)
+            case "scatter":
+                ax.scatter(current_x, current_y, label=key)
+            case "bar":
+                ax.bar(current_x, current_y, label=key)
+
+    ax.legend()
+
+    if x_label:
+        ax.set_xlabel(x_label)
+    if y_label:
+        ax.set_ylabel(y_label)
+    if title:
+        ax.set_title(title)
+    if save_path:
+        plt.savefig(save_path, dpi=300.0)
+        print(f"Plotted graph successfully saved to path: {save_path}")
+    if show_fig:
+        plt.show()
 
     return None

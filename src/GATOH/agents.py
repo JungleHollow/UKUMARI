@@ -357,6 +357,7 @@ class Agent:
             case "rational":
                 # This will likely mean that the agent is more disposed towards considering tangible benefits and their own
                 # opinions when determining radicalisation, rather than external influences
+                # TODO: Change this from self.personal_benefit to some measure of the community's aggregate benefit
                 if absolute_opinion >= threshold and self.personal_benefit:
                     self.radicalised = True
                     return self.radicalised

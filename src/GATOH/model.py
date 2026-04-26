@@ -336,6 +336,7 @@ class ABModel:
                     # Update the previous opinion across all hierarchies
                     hierarchy.agent_previous_opinion(agent)
 
+                # TODO: Implement a check and handling for if the current agent is radicalised
                 collective_changes: list[float] = []
                 for hierarchy in self.graphs:
                     collective_changes.append(hierarchy.neighbour_influences(agent))
